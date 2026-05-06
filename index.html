@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kørebog KEJ">
+<title>Kørebog – Kasper Ejgaard Jespersen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#f0f2f7;
+  --surface:#ffffff;
+  --surface2:#f7f8fc;
+  --border:#e2e5ee;
+  --border2:#d0d4e0;
+  --blue:#2f6de4;
+  --blue-light:#ebf1fd;
+  --blue-dark:#1d4faa;
+  --text:#111827;
+  --text2:#374151;
+  --muted:#8b92a5;
+  --muted2:#6b7280;
+  --green:#16a34a;
+  --green-light:#dcfce7;
+  --red:#dc2626;
+  --red-light:#fee2e2;
+  --amber:#d97706;
+  --amber-light:#fef3c7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+  --radius:16px;
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+}
+html{background:var(--bg);height:100%;-webkit-text-size-adjust:100%}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100%;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+
+/* ═══ LAYOUT ═══ */
+.app{max-width:430px;margin:0 auto;min-height:100svh;display:flex;flex-direction:column;padding-bottom:calc(72px + var(--sab))}
+
+/* ═══ TOPBAR ═══ */
+.topbar-wrap{
+  padding:calc(var(--sat) + 10px) 14px 0;
+  position:sticky;top:0;z-index:200;
+  background:var(--bg);
+}
+.topbar{
+  padding:11px 14px 11px;
+  background:#ffffff;
+  border-radius:16px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+}
+.topbar-inner{display:flex;align-items:center;gap:12px}
+.app-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(145deg,#3b82f6,#1d4faa);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;box-shadow:0 2px 8px rgba(47,109,228,0.35)}
+.topbar-titles h1{font-size:13px;font-weight:700;color:var(--text);letter-spacing:-0.2px}
+.topbar-titles p{font-size:11px;color:var(--muted);font-weight:400;margin-top:0px}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.km-badge{background:var(--blue-light);color:var(--blue);border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600;white-space:nowrap}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);display:inline-block;margin-left:4px;transition:background .3s}
+.sync-dot.connected{background:var(--green)}
+
+/* ═══ BOTTOM NAV ═══ */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;padding-bottom:var(--sab);background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border);z-index:200;display:flex;justify-content:center}
+.bottom-nav-inner{display:flex;max-width:430px;width:100%}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0 6px;background:none;border:none;color:var(--muted);font-family:'Outfit',sans-serif;font-size:10px;font-weight:600;letter-spacing:0.2px;cursor:pointer;transition:color .15s;-webkit-appearance:none}
+.nav-btn svg{width:22px;height:22px;stroke-width:1.8;transition:transform .2s}
+.nav-btn.active{color:var(--blue)}
+.nav-btn.active svg{transform:scale(1.1)}
+
+/* ═══ VIEWS ═══ */
+.view{display:none;padding:10px 14px;flex-direction:column;gap:8px}
+.view.active{display:flex}
+@keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.view.active>*{animation:viewIn .28s ease both}
+.view.active>*:nth-child(2){animation-delay:.04s}
+.view.active>*:nth-child(3){animation-delay:.08s}
+.view.active>*:nth-child(4){animation-delay:.12s}
+.view.active>*:nth-child(5){animation-delay:.16s}
+
+/* ═══ CARD ═══ */
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:visible;padding:13px}
+.card+.card{margin-top:0}
+.card-title{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.card-title .badge{background:var(--blue-light);color:var(--blue);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;letter-spacing:0;text-transform:none}
+
+/* ═══ FIELDS ═══ */
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:600;color:var(--muted2)}
+.field input,.field textarea{
+  background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:10px;padding:9px 12px;
+  color:var(--text);font-family:'Outfit',sans-serif;
+  font-size:14px;font-weight:500;
+  outline:none;transition:border-color .18s,box-shadow .18s,background .18s;
+  width:100%;-webkit-appearance:none;
+}
+.field input:focus,.field textarea:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(47,109,228,0.12)}
+.field input::placeholder,.field textarea::placeholder{color:var(--muted);font-weight:400}
+.field textarea{resize:none;height:48px;line-height:1.4}
+.field input[type=date]{color:var(--text2)}
+
+/* ═══ ADDRESS FIELD WITH AUTOCOMPLETE ═══ */
+.addr-wrap{position:relative}
+.addr-input-row{position:relative}
+.addr-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;z-index:2;pointer-events:none;flex-shrink:0}
+.addr-icon.start{background:#dcfce7;color:#16a34a}
+.addr-icon.via{background:#fef3c7;color:#d97706}
+.addr-icon.end{background:#fee2e2;color:#dc2626}
+.addr-input{padding-left:38px!important;padding-right:34px!important}
+.fav-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:4px;z-index:2;transition:color .15s}
+.fav-btn:active{color:var(--blue)}
+
+.suggestions{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.12);
+  z-index:500;overflow:hidden;
+  max-height:200px;overflow-y:auto;
+}
+.suggestion-item{
+  padding:9px 12px;font-size:14px;font-weight:500;
+  cursor:pointer;display:flex;align-items:flex-start;gap:8px;
+  border-bottom:1px solid var(--border);transition:background .12s;
+}
+.suggestion-item:last-child{border-bottom:none}
+.suggestion-item:active,.suggestion-item.hover{background:var(--surface2)}
+.sug-icon{color:var(--muted);flex-shrink:0;margin-top:1px;font-size:12px}
+.sug-text{flex:1}
+.sug-main{color:var(--text);font-weight:600;font-size:12px;line-height:1.3}
+.sug-sub{color:var(--muted);font-size:11px;margin-top:1px;font-weight:400}
+.sug-fav-label{font-size:10px;color:var(--amber);font-weight:600;background:var(--amber-light);padding:1px 6px;border-radius:4px;margin-left:auto;flex-shrink:0}
+.no-results{padding:12px;font-size:12px;color:var(--muted);text-align:center}
+
+/* Via toggle */
+.via-toggle{background:none;border:1.5px dashed var(--border2);border-radius:10px;padding:7px 12px;width:100%;cursor:pointer;color:var(--muted2);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:border-color .15s,color .15s;justify-content:center}
+.via-toggle:active{border-color:var(--blue);color:var(--blue)}
+.via-row{display:none}
+.via-row.open{display:flex;flex-direction:column;gap:5px}
+
+/* ═══ DISTANCE DISPLAY ═══ */
+.route-result{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:10px;padding:10px 12px;margin-top:4px;
+}
+.dist-main{flex:1}
+.dist-km{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-1px;line-height:1}
+.dist-km span{font-size:13px;font-weight:500;color:var(--muted);margin-left:2px}
+.dist-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.dist-status{font-size:12px;color:var(--muted);font-weight:500}
+.dist-status.loading{display:flex;align-items:center;gap:6px}
+.dist-status.ok{color:var(--green)}
+.dist-status.err{color:var(--red);font-size:11px}
+
+.calc-btn{background:var(--blue);color:#fff;border:none;border-radius:9px;padding:9px 13px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s,transform .1s;white-space:nowrap;-webkit-appearance:none}
+.calc-btn:active{background:var(--blue-dark);transform:scale(0.97)}
+.calc-btn:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+
+/* ═══ ODO DISPLAY ═══ */
+.odo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:0}
+.odo-box{background:var(--surface2);border:1.5px solid var(--border);border-radius:11px;padding:12px;display:flex;flex-direction:column;gap:2px}
+.odo-label{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0.5px}
+.odo-val{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-0.5px}
+.odo-val.auto{color:var(--blue);font-size:18px}
+.odo-val.placeholder{color:var(--muted);font-size:14px;font-weight:400}
+
+/* ═══ SAVE BUTTON ═══ */
+.save-btn{
+  width:100%;padding:13px;
+  background:linear-gradient(135deg,#3b82f6,#1d4faa);
+  border:none;border-radius:13px;
+  color:#fff;font-family:'Outfit',sans-serif;
+  font-size:15px;font-weight:700;
+  cursor:pointer;transition:opacity .15s,transform .12s;
+  box-shadow:0 4px 16px rgba(47,109,228,0.35);
+  -webkit-appearance:none;margin-top:0px;
+}
+.save-btn:active:not(:disabled){transform:scale(0.98)}
+.save-btn:disabled{opacity:0.35;cursor:not-allowed;box-shadow:none;transform:none}
+
+/* ═══ LOG ═══ */
+.log-empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.log-empty .icon{font-size:44px;margin-bottom:14px;opacity:0.5}
+.log-empty p{font-size:15px;line-height:1.6}
+
+.trip-item{
+  background:var(--surface);border-radius:var(--radius);
+  box-shadow:var(--shadow-sm);overflow:hidden;
+}
+.trip-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px}
+.trip-date-str{font-size:12px;font-weight:600;color:var(--muted)}
+.trip-km-big{font-size:22px;font-weight:800;color:var(--blue);letter-spacing:-0.5px}
+.trip-km-big small{font-size:12px;font-weight:500;color:var(--muted);margin-left:1px}
+.trip-route-col{padding:0 16px 10px;display:flex;flex-direction:column;gap:4px}
+.trip-stop-row{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text2)}
+.stop-circle{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.stop-circle.s{background:var(--green)}
+.stop-circle.v{background:var(--amber)}
+.stop-circle.e{background:var(--red)}
+.stop-line{width:8px;display:flex;justify-content:center}
+.stop-line-inner{width:1.5px;height:10px;background:var(--border2)}
+.trip-footer{display:flex;justify-content:space-between;align-items:center;padding:8px 16px 12px;border-top:1px solid var(--border)}
+.trip-purpose{font-size:12px;color:var(--muted2);font-weight:500;background:var(--surface2);border-radius:6px;padding:3px 8px}
+.trip-odo-str{font-size:11px;color:var(--muted);font-weight:400}
+.trip-del-btn{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:color .12s,background .12s}
+.trip-del-btn:active{color:var(--red);background:var(--red-light)}
+.trip-synced{font-size:11px;color:var(--green);font-weight:600;display:flex;align-items:center;gap:3px}
+
+/* ═══ STATS ═══ */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-tile{background:var(--surface);border-radius:14px;box-shadow:var(--shadow-sm);padding:16px}
+.stat-num{font-size:30px;font-weight:800;color:var(--text);letter-spacing:-1px;line-height:1}
+.stat-num small{font-size:14px;font-weight:500;color:var(--muted);letter-spacing:0}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:4px;font-weight:500}
+.stat-tile.accent{background:linear-gradient(135deg,#3b82f6,#1d4faa)}
+.stat-tile.accent .stat-num,.stat-tile.accent .stat-lbl{color:rgba(255,255,255,0.9)}
+.stat-tile.accent small{color:rgba(255,255,255,0.65)}
+
+.section-heading{font-size:13px;font-weight:700;color:var(--muted2);letter-spacing:0.5px;text-transform:uppercase;padding:4px 0 0}
+
+.month-row{background:var(--surface);border-radius:12px;box-shadow:var(--shadow-sm);padding:13px 16px;display:flex;justify-content:space-between;align-items:center}
+.month-name{font-size:14px;font-weight:600;color:var(--text)}
+.month-count{font-size:11px;color:var(--muted);margin-top:1px}
+.month-km{font-size:18px;font-weight:800;color:var(--blue);text-align:right;letter-spacing:-0.5px}
+.month-km small{font-size:11px;font-weight:500;color:var(--muted)}
+
+/* ═══ SETTINGS ═══ */
+.settings-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden}
+.settings-row{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:12px}
+.settings-row:last-child{border-bottom:none}
+.settings-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.settings-icon.blue{background:var(--blue-light)}
+.settings-icon.green{background:var(--green-light)}
+.settings-icon.amber{background:var(--amber-light)}
+.settings-info{flex:1}
+.settings-label{font-size:14px;font-weight:600;color:var(--text)}
+.settings-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.settings-action{color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;background:none;border:none;font-family:'Outfit',sans-serif;padding:6px 10px;border-radius:8px;transition:background .12s;-webkit-appearance:none}
+.settings-action:active{background:var(--blue-light)}
+.settings-action.red{color:var(--red)}
+.settings-action.red:active{background:var(--red-light)}
+
+/* ═══ FAVORITES MODAL ═══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal-sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + var(--sab));width:100%;max-width:430px;max-height:80svh;overflow-y:auto;animation:sheetUp .28s cubic-bezier(.34,1.56,.64,1)}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px}
+.modal-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px}
+.fav-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.fav-item{display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:10px;padding:10px 12px}
+.fav-name{font-size:13px;font-weight:600;color:var(--text);flex:1}
+.fav-addr{font-size:11px;color:var(--muted);flex:1}
+.fav-remove{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;border-radius:6px;transition:color .12s}
+.fav-remove:active{color:var(--red)}
+.fav-add-form{display:flex;flex-direction:column;gap:8px}
+.fav-add-form input{background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-family:'Outfit',sans-serif;font-size:14px;color:var(--text);outline:none;-webkit-appearance:none}
+.fav-add-form input:focus{border-color:var(--blue);background:#fff}
+.btn-row{display:flex;gap:8px;margin-top:4px}
+.btn-secondary{flex:1;padding:11px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;-webkit-appearance:none;transition:background .12s}
+.btn-secondary:active{background:var(--border)}
+.btn-primary-sm{flex:1;padding:11px;background:var(--blue);border:none;border-radius:10px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;transition:opacity .12s}
+.btn-primary-sm:active{opacity:0.85}
+.empty-favs{text-align:center;padding:24px;color:var(--muted);font-size:13px}
+
+/* ═══ ONEDRIVE STATUS ═══ */
+.onedrive-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.od-row{display:flex;align-items:center;gap:12px}
+.od-logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#0078d4,#005fa3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.od-info{flex:1}
+.od-title{font-size:15px;font-weight:700;color:var(--text)}
+.od-status{font-size:12px;color:var(--muted);margin-top:2px}
+.od-btn{background:var(--blue);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-appearance:none;transition:opacity .12s}
+.od-btn:active{opacity:0.8}
+.od-btn.disconnect{background:var(--red-light);color:var(--red)}
+.od-file-field{margin-top:12px;display:flex;gap:8px}
+.od-file-field input{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-family:'Outfit',sans-serif;font-size:13px;color:var(--text);outline:none;-webkit-appearance:none}
+.od-file-field input:focus{border-color:var(--blue)}
+.od-help{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;background:var(--surface2);border-radius:10px;padding:10px 12px}
+.od-help strong{color:var(--text2)}
+.od-help code{background:var(--border);border-radius:4px;padding:1px 5px;font-family:monospace;font-size:11px}
+
+/* ═══ SPINNER ═══ */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+
+/* ═══ TOAST ═══ */
+.toast{position:fixed;bottom:calc(84px + var(--sab));left:50%;transform:translateX(-50%) translateY(16px);background:#1f2937;border-radius:12px;padding:11px 20px;font-size:14px;font-weight:600;color:#fff;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:2000;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{background:#15803d}
+.toast.error{background:#dc2626}
+
+/* ═══ EXPORT BUTTON ═══ */
+.export-btn{width:100%;padding:12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s}
+.export-btn:active{background:var(--border)}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar-wrap">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="app-icon">🚗</div>
+        <div class="topbar-titles">
+          <h1>Kørebog – Kasper Ejgaard Jespersen</h1>
+          <p id="top-date">–</p>
+        </div>
+        <div class="header-right">
+          <div class="km-badge" id="total-badge">0 km</div>
+          <div class="sync-dot" id="sync-dot" title="OneDrive status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ VIEW: NY KØRSEL ═══ -->
+  <div class="view active" id="view-new">
+
+    <!-- RUTE -->
+    <div class="card">
+      <div class="card-title">📍 Rute</div>
+
+      <!-- Fra -->
+      <div class="field" style="margin-bottom:7px">
+        <label>Startadresse</label>
+        <div class="addr-wrap">
+          <div class="addr-input-row">
+            <div class="addr-icon start">▲</div>
+            <input class="field input addr-input" id="from" type="text" placeholder="Startadresse..." autocomplete="off" autocorrect="off" spellcheck="false" inputmode="search">
+            <button class="fav-btn" onclick="openFavPicker('from')" title="Favoritter">⭐</button>
+          </div>
+          <div class="suggestions" id="sug-from" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Via toggle -->
+      <div id="via-toggle-wrap" style="margin-bottom:7px">
+        <button class="via-toggle" onclick="toggleVia()">＋ Tilføj mellemstop (valgfrit)</button>
+      </div>
+
+      <!-- Via field -->
+      <div class="via-row" id="via-row" style="margin-bottom:7px">
+        <label style="font-size:11px;font-weight:600;color:var(--muted2)">Mellemstop</label>
+        <div class="addr-wrap">
+          <div class="addr-input-row">
+            <div class="addr-icon via">◆</div>
+            <input class="field input addr-input" id="via" type="text" placeholder="Fx. kundens adresse..." autocomplete="off" autocorrect="off" spellcheck="false" inputmode="search">
+            <button class="fav-btn" onclick="openFavPicker('via')" title="Favoritter">⭐</button>
+          </div>
+          <div class="suggestions" id="sug-via" style="display:none"></div>
+        </div>
+        <button style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;align-self:flex-end;padding:2px 0;margin-top:2px;font-family:'Outfit',sans-serif" onclick="closeVia()">✕ Fjern mellemstop</button>
+      </div>
+
+      <!-- Til -->
+      <div class="field" style="margin-bottom:10px">
+        <label>Slutadresse</label>
+        <div class="addr-wrap">
+          <div class="addr-input-row">
+            <div class="addr-icon end">●</div>
+            <input class="field input addr-input" id="to" type="text" placeholder="Slutadresse..." autocomplete="off" autocorrect="off" spellcheck="false" inputmode="search">
+            <button class="fav-btn" onclick="openFavPicker('to')" title="Favoritter">⭐</button>
+          </div>
+          <div class="suggestions" id="sug-to" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Resultat -->
+      <div class="route-result" id="route-result">
+        <div class="dist-main">
+          <div class="dist-km" id="dist-km" style="display:none">– <span>km</span></div>
+          <div class="dist-sub" id="dist-sub" style="display:none"></div>
+          <div class="dist-status" id="dist-status">Udfyld adresser og tryk Beregn</div>
+        </div>
+        <button class="calc-btn" id="calc-btn" onclick="calcRoute()" disabled>Beregn 🗺️</button>
+      </div>
+    </div>
+
+    <!-- KM-STAND + DATO + FORMÅL (samlet kort) -->
+    <div class="card">
+      <div class="card-title">🔢 Km-stand &amp; detaljer <span id="odo-hint" style="font-size:10px;color:var(--blue);font-weight:500;letter-spacing:0;text-transform:none;margin-left:2px;display:none">· ét felt beregnes auto</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="field">
+          <label>Start km-stand</label>
+          <div style="position:relative">
+            <input id="odo-start" type="number" placeholder="47832" inputmode="numeric"
+              style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-size:16px;font-weight:700;color:var(--text);outline:none;transition:border-color .18s,box-shadow .18s;width:100%;-webkit-appearance:none">
+            <div id="odo-start-auto" style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);background:var(--blue-light);color:var(--blue);font-size:9px;font-weight:700;border-radius:4px;padding:2px 4px">AUTO</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Slut km-stand</label>
+          <div style="position:relative">
+            <input id="odo-end" type="number" placeholder="47965" inputmode="numeric"
+              style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-size:16px;font-weight:700;color:var(--text);outline:none;transition:border-color .18s,box-shadow .18s;width:100%;-webkit-appearance:none">
+            <div id="odo-end-auto" style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);background:var(--blue-light);color:var(--blue);font-size:9px;font-weight:700;border-radius:4px;padding:2px 4px">AUTO</div>
+          </div>
+        </div>
+      </div>
+      <div id="odo-dist-note" style="display:none;margin-bottom:8px;font-size:11px;color:var(--muted);background:var(--surface2);border-radius:7px;padding:5px 9px">
+        📏 Ruten er <strong id="odo-dist-str">–</strong> km — udfyld ét felt, det andet beregnes
+      </div>
+      <div class="field" style="margin-bottom:8px">
+        <label>Dato</label>
+        <input id="trip-date" type="date" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-size:14px;font-weight:500;color:var(--text);outline:none;width:100%;-webkit-appearance:none">
+      </div>
+      <div class="field">
+        <label>Formål / kunde</label>
+        <textarea id="purpose" placeholder="Fx. Kundemøde hos Acme ApS, serviceopgave..." style="height:52px;padding:9px 12px;font-size:13px;border-radius:10px"></textarea>
+      </div>
+    </div>
+
+    <button class="save-btn" id="save-btn" onclick="saveTrip()" disabled>Gem kørsel</button>
+
+  </div>
+
+  <!-- ═══ VIEW: LOG ═══ -->
+  <div class="view" id="view-log">
+    <div id="log-container"></div>
+  </div>
+
+  <!-- ═══ VIEW: STATISTIK ═══ -->
+  <div class="view" id="view-stats">
+    <div class="stats-grid" id="stat-grid"></div>
+    <div id="month-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <!-- ═══ VIEW: INDSTILLINGER ═══ -->
+  <div class="view" id="view-settings">
+
+    <!-- OneDrive -->
+    <div class="onedrive-card">
+      <div class="od-row">
+        <div class="od-logo">☁️</div>
+        <div class="od-info">
+          <div class="od-title">OneDrive / Excel</div>
+          <div class="od-status" id="od-status-text">Ikke forbundet</div>
+        </div>
+        <button class="od-btn" id="od-btn" onclick="toggleOneDrive()">Forbind</button>
+      </div>
+      <div class="od-file-field" id="od-file-field" style="display:none">
+        <input id="od-filepath" type="text" placeholder="Stifinder: Dokumenter/Kørebog.xlsx" value="">
+        <button class="calc-btn" onclick="saveOdSettings()" style="padding:9px 12px">Gem</button>
+      </div>
+      <div class="od-help" id="od-help">
+        <strong>Opsætning:</strong> Du skal registrere en gratis Azure-app (tager ~2 min):<br>
+        1. Gå til <code>portal.azure.com</code> → App registrations → New<br>
+        2. Vælg "Single-page application", redirect URI = siden URL<br>
+        3. Kopiér <strong>Application (client) ID</strong> herunder og tryk Gem<br><br>
+        <input id="od-client-id" type="text" placeholder="Indsæt Azure Client ID her..."
+          style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;width:100%;font-family:monospace;color:var(--text);outline:none;margin-top:2px">
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn-primary-sm" onclick="saveClientId()" style="flex:none;padding:8px 14px">Gem Client ID</button>
+          <span id="client-id-saved" style="color:var(--green);font-size:12px;align-self:center;display:none">✓ Gemt</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Favoritter -->
+    <div class="settings-section">
+      <div class="settings-row">
+        <div class="settings-icon blue">⭐</div>
+        <div class="settings-info">
+          <div class="settings-label">Favoritadresser</div>
+          <div class="settings-sub" id="fav-count-label">0 gemt</div>
+        </div>
+        <button class="settings-action" onclick="openFavManager()">Administrer</button>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="card">
+      <div class="card-title">📤 Eksport</div>
+      <button class="export-btn" onclick="exportCSV()">⬇️ Download som CSV-fil</button>
+    </div>
+
+    <!-- Ryd data -->
+    <div class="settings-section">
+      <div class="settings-row">
+        <div class="settings-icon" style="background:var(--red-light)">🗑️</div>
+        <div class="settings-info">
+          <div class="settings-label">Ryd alle data</div>
+          <div class="settings-sub">Slet alle kørsler permanent</div>
+        </div>
+        <button class="settings-action red" onclick="clearAll()">Ryd</button>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- end .app -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="nav-btn active" id="nav-new" onclick="switchTab('new')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Ny kørsel
+    </button>
+    <button class="nav-btn" id="nav-log" onclick="switchTab('log')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      Log
+    </button>
+    <button class="nav-btn" id="nav-stats" onclick="switchTab('stats')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="12" width="5" height="10"/><rect x="9" y="7" width="5" height="15"/><rect x="16" y="3" width="5" height="19"/></svg>
+      Statistik
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="switchTab('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Indstillinger
+    </button>
+  </div>
+</nav>
+
+<!-- FAVORITES MODAL -->
+<div class="modal-overlay" id="fav-modal" onclick="closeFavModal(event)">
+  <div class="modal-sheet" onclick="e=>e.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⭐ Favoritadresser</div>
+    <div class="fav-list" id="fav-list"></div>
+    <div class="fav-add-form">
+      <input id="fav-name-input" type="text" placeholder="Navn (fx. Kontor, Hjem, Kunde A)">
+      <input id="fav-addr-input" type="text" placeholder="Adresse (fx. Vesterbrogade 10, København)">
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="closeFavModal()">Luk</button>
+        <button class="btn-primary-sm" onclick="addFavorite()">＋ Tilføj</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAV PICKER MODAL -->
+<div class="modal-overlay" id="fav-picker-modal" onclick="closeFavPicker(event)">
+  <div class="modal-sheet" onclick="e=>e.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Vælg favorit</div>
+    <div class="fav-list" id="fav-picker-list"></div>
+    <button class="btn-secondary" onclick="closeFavPicker()" style="margin-top:8px">Annuller</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══ STATE ═══
+let trips = JSON.parse(localStorage.getItem('kb_trips') || '[]');
+let favorites = JSON.parse(localStorage.getItem('kb_favs') || '[]');
+let settings = JSON.parse(localStorage.getItem('kb_settings') || '{}');
+let currentDist = null;
+let currentDuration = null;
+let viaOpen = false;
+let favPickerTarget = null;
+let debounceTimers = {};
+let msalInstance = null;
+let odAccount = null;
+
+// ═══ INIT ═══
+(function init(){
+  const now = new Date();
+  document.getElementById('top-date').textContent = now.toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('trip-date').value = now.toISOString().split('T')[0];
+  updateTotalBadge();
+  updateFavCountLabel();
+
+  // Load saved settings
+  if(settings.clientId) document.getElementById('od-client-id').value = settings.clientId;
+  if(settings.excelPath) document.getElementById('od-filepath').value = settings.excelPath;
+
+  // Attach autocomplete to address inputs
+  ['from','via','to'].forEach(id => setupAutocomplete(id));
+
+  // Enable save btn check
+  ['from','to','odo-start','odo-end'].forEach(id => {
+    document.getElementById(id).addEventListener('input', checkSaveReady);
+  });
+
+  // Enable calc btn check
+  ['from','to'].forEach(id => {
+    document.getElementById(id).addEventListener('input', checkCalcReady);
+  });
+
+  // Auto-calc when both from+to filled (debounced)
+  ['from','via','to'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      clearTimeout(debounceTimers['autoCalc']);
+      debounceTimers['autoCalc'] = setTimeout(() => {
+        const f = document.getElementById('from').value.trim();
+        const t = document.getElementById('to').value.trim();
+        if(f.length > 5 && t.length > 5) calcRoute();
+      }, 1800);
+    });
+  });
+
+  document.getElementById('odo-start').addEventListener('input', () => updateOdoFields('start'));
+  document.getElementById('odo-end').addEventListener('input', () => updateOdoFields('end'));
+
+  // Init OneDrive if clientId saved
+  if(settings.clientId) initMsal(settings.clientId);
+  updateOdUI();
+})();
+
+// ═══ MSAL / ONEDRIVE ═══
+function initMsal(clientId){
+  try {
+    msalInstance = new msal.PublicClientApplication({
+      auth: {
+        clientId: clientId,
+        authority: 'https://login.microsoftonline.com/common',
+        redirectUri: window.location.href.split('?')[0].split('#')[0]
+      },
+      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+    });
+    // Handle redirect
+    msalInstance.handleRedirectPromise().then(resp => {
+      if(resp) {
+        odAccount = resp.account;
+        settings.odAccountName = resp.account.name || resp.account.username;
+        saveSettings();
+        updateOdUI();
+        showToast('✓ Forbundet til OneDrive', 'success');
+      }
+    }).catch(e => console.warn('MSAL redirect:', e));
+
+    const accounts = msalInstance.getAllAccounts();
+    if(accounts.length > 0){
+      odAccount = accounts[0];
+      settings.odAccountName = odAccount.name || odAccount.username;
+    }
+  } catch(e) { console.warn('MSAL init error:', e); }
+}
+
+function toggleOneDrive(){
+  if(odAccount){ disconnectOneDrive(); return; }
+  if(!settings.clientId){ showToast('Angiv Azure Client ID i feltet nedenfor', 'error'); return; }
+  if(!msalInstance) initMsal(settings.clientId);
+  try {
+    msalInstance.loginRedirect({ scopes: ['Files.ReadWrite', 'User.Read'] });
+  } catch(e) { showToast('Login fejlede: ' + e.message, 'error'); }
+}
+
+function disconnectOneDrive(){
+  if(!confirm('Afbryd forbindelsen til OneDrive?')) return;
+  odAccount = null;
+  delete settings.odAccountName;
+  if(msalInstance) msalInstance.getAllAccounts().forEach(a => msalInstance.logoutPopup({account: a}).catch(()=>{}));
+  saveSettings(); updateOdUI();
+}
+
+function updateOdUI(){
+  const connected = !!odAccount;
+  document.getElementById('od-status-text').textContent = connected
+    ? '✓ Forbundet som ' + (settings.odAccountName || 'bruger')
+    : 'Ikke forbundet';
+  document.getElementById('od-btn').textContent = connected ? 'Afbryd' : 'Forbind';
+  document.getElementById('od-btn').className = 'od-btn' + (connected ? ' disconnect' : '');
+  document.getElementById('od-file-field').style.display = connected ? 'flex' : 'none';
+  document.getElementById('sync-dot').className = 'sync-dot' + (connected ? ' connected' : '');
+  document.getElementById('od-help').style.display = connected ? 'none' : 'block';
+}
+
+function saveClientId(){
+  const id = document.getElementById('od-client-id').value.trim();
+  if(!id){ showToast('Indsæt et gyldigt Client ID', 'error'); return; }
+  settings.clientId = id;
+  saveSettings();
+  initMsal(id);
+  document.getElementById('client-id-saved').style.display = 'inline';
+  setTimeout(() => document.getElementById('client-id-saved').style.display = 'none', 2000);
+}
+
+function saveOdSettings(){
+  settings.excelPath = document.getElementById('od-filepath').value.trim();
+  saveSettings();
+  showToast('✓ Sti gemt', 'success');
+}
+
+async function getGraphToken(){
+  if(!msalInstance || !odAccount) return null;
+  try {
+    const r = await msalInstance.acquireTokenSilent({
+      scopes: ['Files.ReadWrite'],
+      account: odAccount
+    });
+    return r.accessToken;
+  } catch(e){
+    const r = await msalInstance.acquireTokenPopup({ scopes: ['Files.ReadWrite'], account: odAccount });
+    return r.accessToken;
+  }
+}
+
+async function syncTripToExcel(trip){
+  if(!odAccount || !settings.excelPath) return false;
+  try {
+    const token = await getGraphToken();
+    if(!token) return false;
+    const fileId = await getExcelFileId(token);
+    if(!fileId) return false;
+    const tableId = await getOrCreateTable(token, fileId);
+    if(!tableId) return false;
+
+    const rowUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables/${tableId}/rows/add`;
+    const rowData = { values: [[
+      trip.date,         // A: Dato
+      trip.odoStart,     // B: Km-tæller start
+      trip.odoEnd,       // C: Km-tæller slut
+      trip.km,           // D: Antal km
+      trip.from,         // E: Startadr.
+      trip.via || '',    // F: Via
+      trip.to,           // G: Slutadr.
+      trip.purpose || '',// H: Formål
+      String(trip.id)    // I: ID (bruges til sletning)
+    ]]};
+    const r = await fetch(rowUrl, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(rowData)
+    });
+    return r.ok;
+  } catch(e){
+    console.warn('OneDrive sync error:', e);
+    return false;
+  }
+}
+
+async function deleteTripFromExcel(tripId){
+  if(!odAccount || !settings.excelPath) return false;
+  try {
+    const token = await getGraphToken();
+    if(!token) return false;
+    const fileId = await getExcelFileId(token);
+    if(!fileId) return false;
+    const tableId = await getOrCreateTable(token, fileId);
+    if(!tableId) return false;
+
+    // Get all rows and find the one matching tripId (column A)
+    const rowsUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables/${tableId}/rows`;
+    const r = await fetch(rowsUrl, { headers: { Authorization: 'Bearer ' + token } });
+    if(!r.ok) return false;
+    const data = await r.json();
+
+    const rowIndex = (data.value || []).findIndex(row => String(row.values[0][8]) === String(tripId));
+    if(rowIndex === -1) return false; // row not found in Excel
+
+    // Delete by row index (0-based within table body)
+    const delUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables/${tableId}/rows/itemAt(index=${rowIndex})`;
+    const delRes = await fetch(delUrl, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    return delRes.ok;
+  } catch(e){
+    console.warn('OneDrive delete error:', e);
+    return false;
+  }
+}
+
+// ── Shared helpers ──
+async function getExcelFileId(token){
+  const path = settings.excelPath.replace(/\\/g,'/').replace(/^\/+/,'');
+  const encPath = path.split('/').map(encodeURIComponent).join('/');
+  const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encPath}`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if(r.ok){ const d = await r.json(); return d.id; }
+  return null;
+}
+
+async function getOrCreateTable(token, fileId){
+  const tablesUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables`;
+  const r = await fetch(tablesUrl, { headers: { Authorization: 'Bearer ' + token } });
+  if(!r.ok) return null;
+  const data = await r.json();
+  if(data.value && data.value.length > 0) return data.value[0].id;
+  return null;
+}
+
+function createMinimalXlsx(){
+  return new Uint8Array(0);
+}
+
+// ═══ AUTOCOMPLETE ═══
+function setupAutocomplete(id){
+  const input = document.getElementById(id);
+  const sug = document.getElementById('sug-' + id);
+  if(!input || !sug) return;
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimers[id]);
+    const val = input.value.trim();
+    if(val.length < 3){ sug.style.display = 'none'; return; }
+    debounceTimers[id] = setTimeout(() => fetchSuggestions(val, id), 350);
+  });
+
+  input.addEventListener('blur', () => setTimeout(() => { if(sug) sug.style.display='none'; }, 180));
+  input.addEventListener('focus', () => {
+    const val = input.value.trim();
+    if(val.length >= 3) fetchSuggestions(val, id);
+  });
+}
+
+async function fetchSuggestions(query, id){
+  const sug = document.getElementById('sug-' + id);
+
+  // Favorites first
+  const favMatches = favorites.filter(f =>
+    f.name.toLowerCase().includes(query.toLowerCase()) ||
+    f.address.toLowerCase().includes(query.toLowerCase())
+  );
+
+  try {
+    // Search Danish addresses — bias to Denmark with viewbox, but don't force it
+    // Two parallel searches: street-level + place-level (catches city-only queries)
+    const baseParams = `format=json&limit=6&addressdetails=1&accept-language=da&viewbox=7.5,54.5,15.5,57.8&bounded=0`;
+    const [streetRes, placeRes] = await Promise.all([
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&${baseParams}&countrycodes=dk`, {headers:{'User-Agent':'Kørebog/1.0'}}),
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&${baseParams}&featuretype=settlement`, {headers:{'User-Agent':'Kørebog/1.0'}})
+    ]);
+    const [streetData, placeData] = await Promise.all([streetRes.json(), placeRes.json()]);
+
+    // Merge and deduplicate by display_name
+    const seen = new Set();
+    const merged = [];
+    [...streetData, ...placeData].forEach(d => {
+      if(!seen.has(d.place_id)){ seen.add(d.place_id); merged.push(d); }
+    });
+
+    // Format each result into a clean Danish label
+    function formatResult(d){
+      const a = d.address;
+      const road   = a.road || a.pedestrian || a.footway || '';
+      const hnum   = a.house_number || '';
+      const post   = a.postcode || '';
+      const city   = a.city || a.town || a.village || a.municipality || a.county || '';
+      const suburb = a.suburb || a.neighbourhood || '';
+
+      let main = '';
+      let sub  = '';
+
+      if(road){
+        main = road + (hnum ? ' ' + hnum : '');
+        sub  = [post, city].filter(Boolean).join(' ');
+        if(suburb && !sub.includes(suburb)) sub += (sub ? ', ' : '') + suburb;
+      } else if(city){
+        main = [post, city].filter(Boolean).join(' ');
+        sub  = a.county || a.state || '';
+      } else {
+        // Fallback: take first two comma-parts of display_name
+        const parts = d.display_name.split(',');
+        main = parts[0].trim();
+        sub  = parts.slice(1,3).join(',').trim();
+      }
+      return { main: main || d.display_name.split(',')[0], sub };
+    }
+
+    const items = [];
+    favMatches.forEach(f => items.push({ type:'fav', name:f.name, address:f.address }));
+    merged.forEach(d => {
+      const { main, sub } = formatResult(d);
+      items.push({ type:'place', main, sub, pick: main + (sub ? ', ' + sub : '') });
+    });
+
+    if(items.length === 0){
+      sug.innerHTML = '<div class="no-results">Ingen resultater — prøv en mere præcis adresse</div>';
+    } else {
+      sug.innerHTML = items.slice(0,8).map(item => {
+        if(item.type === 'fav') return `
+          <div class="suggestion-item" onmousedown="pickSuggestion('${id}','${esc(item.address)}')" ontouchstart="pickSuggestion('${id}','${esc(item.address)}')">
+            <span class="sug-icon">⭐</span>
+            <div class="sug-text">
+              <div class="sug-main">${esc(item.name)}</div>
+              <div class="sug-sub">${esc(item.address)}</div>
+            </div>
+            <span class="sug-fav-label">Favorit</span>
+          </div>`;
+        return `
+          <div class="suggestion-item" onmousedown="pickSuggestion('${id}','${esc(item.pick)}')" ontouchstart="pickSuggestion('${id}','${esc(item.pick)}')">
+            <span class="sug-icon">📍</span>
+            <div class="sug-text">
+              <div class="sug-main">${esc(item.main)}</div>
+              ${item.sub ? `<div class="sug-sub">${esc(item.sub)}</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+    }
+    sug.style.display = 'block';
+  } catch(e){
+    sug.style.display = 'none';
+  }
+}
+
+function pickSuggestion(id, address){
+  document.getElementById(id).value = address;
+  document.getElementById('sug-' + id).style.display = 'none';
+  checkCalcReady();
+  checkSaveReady();
+}
+
+function esc(s){ return String(s).replace(/'/g,"&#39;").replace(/"/g,"&quot;") }
+
+// ═══ VIA ═══
+function toggleVia(){
+  viaOpen = true;
+  document.getElementById('via-row').className = 'via-row open';
+  document.getElementById('via-toggle-wrap').style.display = 'none';
+}
+function closeVia(){
+  viaOpen = false;
+  document.getElementById('via-row').className = 'via-row';
+  document.getElementById('via-toggle-wrap').style.display = 'block';
+  document.getElementById('via').value = '';
+  document.getElementById('sug-via').style.display = 'none';
+}
+
+// ═══ FAVORITES ═══
+function openFavManager(){
+  renderFavList();
+  document.getElementById('fav-modal').classList.add('open');
+}
+function closeFavModal(e){
+  if(!e || e.target === document.getElementById('fav-modal'))
+    document.getElementById('fav-modal').classList.remove('open');
+}
+function renderFavList(){
+  const list = document.getElementById('fav-list');
+  if(!favorites.length){
+    list.innerHTML = '<div class="empty-favs">Ingen favoritter endnu.<br>Tilføj en nedenfor.</div>';
+    return;
+  }
+  list.innerHTML = favorites.map((f,i) => `
+    <div class="fav-item">
+      <span style="font-size:18px">⭐</span>
+      <div style="flex:1">
+        <div class="fav-name">${esc(f.name)}</div>
+        <div class="fav-addr">${esc(f.address)}</div>
+      </div>
+      <button class="fav-remove" onclick="removeFav(${i})">✕</button>
+    </div>
+  `).join('');
+}
+function addFavorite(){
+  const name = document.getElementById('fav-name-input').value.trim();
+  const addr = document.getElementById('fav-addr-input').value.trim();
+  if(!name || !addr){ showToast('Udfyld navn og adresse', 'error'); return; }
+  favorites.push({name, address: addr});
+  localStorage.setItem('kb_favs', JSON.stringify(favorites));
+  document.getElementById('fav-name-input').value = '';
+  document.getElementById('fav-addr-input').value = '';
+  renderFavList();
+  updateFavCountLabel();
+  showToast('⭐ Favorit tilføjet', 'success');
+}
+function removeFav(i){
+  favorites.splice(i,1);
+  localStorage.setItem('kb_favs', JSON.stringify(favorites));
+  renderFavList();
+  updateFavCountLabel();
+}
+function updateFavCountLabel(){
+  document.getElementById('fav-count-label').textContent = favorites.length + (favorites.length === 1 ? ' favorit gemt' : ' favoritter gemt');
+}
+
+// Favorite picker
+function openFavPicker(targetId){
+  if(!favorites.length){ openFavManager(); return; }
+  favPickerTarget = targetId;
+  document.getElementById('fav-picker-list').innerHTML = favorites.map((f,i) => `
+    <div class="fav-item" onclick="pickFav(${i})" style="cursor:pointer">
+      <span style="font-size:18px">⭐</span>
+      <div style="flex:1">
+        <div class="fav-name">${esc(f.name)}</div>
+        <div class="fav-addr">${esc(f.address)}</div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('fav-picker-modal').classList.add('open');
+}
+function closeFavPicker(e){
+  if(!e || e.target === document.getElementById('fav-picker-modal'))
+    document.getElementById('fav-picker-modal').classList.remove('open');
+}
+function pickFav(i){
+  if(favPickerTarget) document.getElementById(favPickerTarget).value = favorites[i].address;
+  closeFavPicker();
+  checkCalcReady();
+  checkSaveReady();
+}
+
+// ═══ ROUTING ═══
+function checkCalcReady(){
+  const f = document.getElementById('from').value.trim();
+  const t = document.getElementById('to').value.trim();
+  document.getElementById('calc-btn').disabled = !(f.length > 2 && t.length > 2);
+}
+
+async function geocode(addr){
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=dk,de,se,no`;
+  const r = await fetch(url, {headers:{'Accept-Language':'da','User-Agent':'Kørebog/1.0'}});
+  const d = await r.json();
+  if(!d.length) throw new Error('Adresse ikke fundet: "' + addr + '"');
+  return { lat: parseFloat(d[0].lat), lon: parseFloat(d[0].lon) };
+}
+
+async function calcRoute(){
+  const from = document.getElementById('from').value.trim();
+  const via  = document.getElementById('via').value.trim();
+  const to   = document.getElementById('to').value.trim();
+  if(!from || !to) return;
+
+  const distEl = document.getElementById('dist-km');
+  const subEl  = document.getElementById('dist-sub');
+  const statEl = document.getElementById('dist-status');
+
+  distEl.style.display = 'none';
+  subEl.style.display = 'none';
+  statEl.innerHTML = '<span class="spinner"></span> Beregner rute...';
+  statEl.className = 'dist-status loading';
+  statEl.style.display = 'flex';
+  document.getElementById('calc-btn').disabled = true;
+  currentDist = null; currentDuration = null;
+  document.getElementById('save-btn').disabled = true;
+
+  try {
+    const waypoints = [from, ...(via ? [via] : []), to];
+    const coords = await Promise.all(waypoints.map(geocode));
+    const coordStr = coords.map(c => c.lon + ',' + c.lat).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=false`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if(d.code !== 'Ok') throw new Error('Ingen rute fundet');
+
+    currentDist = d.routes[0].distance / 1000;
+    currentDuration = d.routes[0].duration;
+
+    distEl.innerHTML = currentDist.toFixed(1) + ' <span>km</span>';
+    distEl.style.display = 'block';
+    subEl.textContent = '≈ ' + formatDuration(currentDuration) + (via ? ' · via mellemstop' : '');
+    subEl.style.display = 'block';
+    statEl.style.display = 'none';
+    recalcOdoAfterRoute();
+    checkSaveReady();
+  } catch(e){
+    statEl.textContent = '⚠ ' + (e.message || 'Fejl – prøv igen');
+    statEl.className = 'dist-status err';
+    statEl.style.display = 'block';
+  }
+  document.getElementById('calc-btn').disabled = false;
+}
+
+function formatDuration(sec){
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  return h > 0 ? h + ' t ' + m + ' min' : m + ' min';
+}
+
+// ═══ ODO ═══
+function updateOdoFields(changed){
+  if(!currentDist) return;
+  const dist = Math.round(currentDist);
+  const startEl = document.getElementById('odo-start');
+  const endEl   = document.getElementById('odo-end');
+  const startAutoEl = document.getElementById('odo-start-auto');
+  const endAutoEl   = document.getElementById('odo-end-auto');
+
+  if(changed === 'start'){
+    const s = parseInt(startEl.value);
+    if(!isNaN(s)){
+      endEl.value = s + dist;
+      endEl.style.color = 'var(--blue)';
+      endAutoEl.style.display = 'block';
+      startAutoEl.style.display = 'none';
+      startEl.style.color = 'var(--text)';
+    } else {
+      endEl.value = '';
+      endEl.style.color = 'var(--text)';
+      endAutoEl.style.display = 'none';
+    }
+  } else if(changed === 'end'){
+    const e = parseInt(endEl.value);
+    if(!isNaN(e)){
+      startEl.value = e - dist;
+      startEl.style.color = 'var(--blue)';
+      startAutoEl.style.display = 'block';
+      endAutoEl.style.display = 'none';
+      endEl.style.color = 'var(--text)';
+    } else {
+      startEl.value = '';
+      startEl.style.color = 'var(--text)';
+      startAutoEl.style.display = 'none';
+    }
+  }
+  checkSaveReady();
+}
+
+// Called after route is calculated — re-run odo if a field is already filled
+function recalcOdoAfterRoute(){
+  const s = document.getElementById('odo-start').value;
+  const e = document.getElementById('odo-end').value;
+  // Show the note banner
+  document.getElementById('odo-hint').style.display = 'inline';
+  document.getElementById('odo-dist-note').style.display = 'block';
+  document.getElementById('odo-dist-str').textContent = currentDist.toFixed(1);
+  if(s) updateOdoFields('start');
+  else if(e) updateOdoFields('end');
+}
+
+function checkSaveReady(){
+  const hasOdo = document.getElementById('odo-start').value || document.getElementById('odo-end').value;
+  const ok = document.getElementById('from').value.trim() &&
+             document.getElementById('to').value.trim() &&
+             hasOdo &&
+             currentDist !== null;
+  document.getElementById('save-btn').disabled = !ok;
+}
+
+// ═══ SAVE TRIP ═══
+async function saveTrip(){
+  const oStart = parseInt(document.getElementById('odo-start').value);
+  const oEnd   = parseInt(document.getElementById('odo-end').value);
+  if(isNaN(oStart) && isNaN(oEnd)){ showToast('Angiv km-stand ved start eller slut', 'error'); return; }
+  if(!currentDist){ showToast('Beregn ruten først', 'error'); return; }
+  const finalStart = isNaN(oStart) ? oEnd - Math.round(currentDist) : oStart;
+  const finalEnd   = isNaN(oEnd)   ? oStart + Math.round(currentDist) : oEnd;
+
+  const trip = {
+    id: Date.now(),
+    date: document.getElementById('trip-date').value,
+    from: document.getElementById('from').value.trim(),
+    via:  document.getElementById('via').value.trim(),
+    to:   document.getElementById('to').value.trim(),
+    km: parseFloat(currentDist.toFixed(1)),
+    odoStart: finalStart,
+    odoEnd: finalEnd,
+    purpose: document.getElementById('purpose').value.trim(),
+    synced: false
+  };
+
+  trips.unshift(trip);
+  saveTrips();
+  updateTotalBadge();
+  resetForm();
+  showToast('✓ Kørsel gemt', 'success');
+  renderLog();
+
+  // OneDrive sync
+  if(odAccount && settings.excelPath){
+    const ok = await syncTripToExcel(trip);
+    if(ok){
+      trips[0].synced = true;
+      saveTrips();
+      showToast('☁️ Synkroniseret til OneDrive', 'success');
+    }
+  }
+}
+
+function resetForm(){
+  ['from','via','to','odo-start','odo-end','purpose'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.value = ''; el.style.color = 'var(--text)'; }
+  });
+  ['odo-start-auto','odo-end-auto'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display='none'; });
+  document.getElementById('odo-hint').style.display = 'none';
+  document.getElementById('odo-dist-note').style.display = 'none';
+  closeVia();
+  document.getElementById('dist-km').style.display = 'none';
+  document.getElementById('dist-sub').style.display = 'none';
+  document.getElementById('dist-status').textContent = 'Udfyld adresser og tryk Beregn';
+  document.getElementById('dist-status').className = 'dist-status';
+  document.getElementById('dist-status').style.display = 'block';
+  document.getElementById('odo-end-val').textContent = '–';
+  document.getElementById('odo-end-val').className = 'odo-val placeholder';
+  document.getElementById('save-btn').disabled = true;
+  document.getElementById('calc-btn').disabled = true;
+  currentDist = null; currentDuration = null;
+  const now = new Date();
+  document.getElementById('trip-date').value = now.toISOString().split('T')[0];
+}
+
+// ═══ LOG ═══
+function renderLog(){
+  const c = document.getElementById('log-container');
+  if(!trips.length){
+    c.innerHTML = '<div class="log-empty"><div class="icon">🚗</div><p>Ingen kørsler endnu.<br>Tilføj din første kørsel.</p></div>';
+    return;
+  }
+  c.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' + trips.map(t => `
+    <div class="trip-item" id="trip-${t.id}">
+      <div class="trip-header">
+        <div class="trip-date-str">${formatDate(t.date)}</div>
+        <div class="trip-km-big">${t.km.toFixed(1)}<small>km</small></div>
+      </div>
+      <div class="trip-route-col">
+        <div class="trip-stop-row"><div class="stop-circle s"></div>${escHtml(t.from)}</div>
+        ${t.via ? `<div class="trip-stop-row"><div class="stop-line"><div class="stop-line-inner"></div></div></div>
+        <div class="trip-stop-row"><div class="stop-circle v"></div>${escHtml(t.via)}</div>` : ''}
+        <div class="trip-stop-row"><div class="stop-line"><div class="stop-line-inner"></div></div></div>
+        <div class="trip-stop-row"><div class="stop-circle e"></div>${escHtml(t.to)}</div>
+      </div>
+      <div class="trip-footer">
+        <div>
+          ${t.purpose ? `<div class="trip-purpose">📋 ${escHtml(t.purpose)}</div>` : ''}
+          <div class="trip-odo-str" style="margin-top:4px">ODO: ${t.odoStart.toLocaleString('da-DK')} → ${t.odoEnd.toLocaleString('da-DK')} km</div>
+          ${t.synced ? '<div class="trip-synced" style="margin-top:4px">☁️ Synkroniseret</div>' : ''}
+        </div>
+        <button class="trip-del-btn" onclick="deleteTrip(${t.id})">✕</button>
+      </div>
+    </div>
+  `).join('') + '</div>';
+}
+
+async function deleteTrip(id){
+  const trip = trips.find(t => t.id === id);
+  const syncedMsg = (trip && trip.synced && odAccount) ? '\n\nKørslen slettes også fra dit Excel-ark.' : '';
+  if(!confirm('Slet denne kørsel?' + syncedMsg)) return;
+
+  // Visuel feedback — dim kortet mens vi sletter
+  const card = document.getElementById('trip-' + id);
+  if(card){ card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+
+  // Slet fra Excel hvis synkroniseret
+  if(trip && trip.synced && odAccount && settings.excelPath){
+    const ok = await deleteTripFromExcel(id);
+    showToast(ok ? '☁️ Slettet fra Excel' : '⚠ Kunne ikke slette fra Excel — slet manuelt', ok ? 'success' : 'error');
+  }
+
+  trips = trips.filter(t => t.id !== id);
+  saveTrips(); renderLog(); renderStats(); updateTotalBadge();
+}
+
+// ═══ STATS ═══
+function renderStats(){
+  const total = trips.reduce((s,t)=>s+t.km,0);
+  const now = new Date().toISOString().slice(0,7);
+  const monthKm = trips.filter(t=>t.date.startsWith(now)).reduce((s,t)=>s+t.km,0);
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat-tile accent">
+      <div class="stat-num">${Math.round(total).toLocaleString('da-DK')}<small> km</small></div>
+      <div class="stat-lbl">Totalt antal km</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-num">${trips.length}</div>
+      <div class="stat-lbl">Antal kørsler</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-num">${Math.round(monthKm).toLocaleString('da-DK')}<small> km</small></div>
+      <div class="stat-lbl">Denne måned</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-num">${trips.length?(total/trips.length).toFixed(1):'0'}<small> km</small></div>
+      <div class="stat-lbl">Gns. pr. kørsel</div>
+    </div>
+  `;
+  const byM = {};
+  trips.forEach(t=>{ const m=t.date.slice(0,7); if(!byM[m]){byM[m]={km:0,count:0}}; byM[m].km+=t.km; byM[m].count++; });
+  const months = Object.keys(byM).sort().reverse();
+  document.getElementById('month-list').innerHTML = months.length ? `
+    <div class="section-heading">Månedsoversigt</div>
+    ${months.map(m=>`
+      <div class="month-row">
+        <div>
+          <div class="month-name">${formatMonth(m)}</div>
+          <div class="month-count">${byM[m].count} kørsler</div>
+        </div>
+        <div class="month-km">${Math.round(byM[m].km).toLocaleString('da-DK')}<small> km</small></div>
+      </div>
+    `).join('')}
+  ` : '';
+}
+
+// ═══ EXPORT CSV ═══
+function exportCSV(){
+  if(!trips.length){ showToast('Ingen kørsler at eksportere', 'error'); return; }
+  const header = 'Dato,Fra,Via,Til,Km,Odo Start,Odo Slut,Formål';
+  const rows = trips.map(t =>
+    [t.date, t.from, t.via||'', t.to, t.km, t.odoStart, t.odoEnd, t.purpose||'']
+    .map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='kørebog.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══ HELPERS ═══
+function formatDate(d){ return new Date(d+'T12:00:00').toLocaleDateString('da-DK',{weekday:'short',day:'numeric',month:'short',year:'numeric'}); }
+function formatMonth(m){ return new Date(m+'-15T12:00:00').toLocaleDateString('da-DK',{month:'long',year:'numeric'}); }
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function saveTrips(){ localStorage.setItem('kb_trips', JSON.stringify(trips)); }
+function saveSettings(){ localStorage.setItem('kb_settings', JSON.stringify(settings)); }
+function updateTotalBadge(){ document.getElementById('total-badge').textContent = Math.round(trips.reduce((s,t)=>s+t.km,0)).toLocaleString('da-DK') + ' km'; }
+function clearAll(){ if(confirm('Slet ALLE kørsler permanent?')){ trips=[]; saveTrips(); updateTotalBadge(); renderLog(); renderStats(); showToast('Alle kørsler slettet'); } }
+
+function showToast(msg, type=''){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (type ? ' '+type : '') + ' show';
+  setTimeout(()=>t.className='toast', 2600);
+}
+
+// ═══ TAB SWITCHING ═══
+function switchTab(name){
+  ['new','log','stats','settings'].forEach(n=>{
+    document.getElementById('view-'+n).classList.toggle('active', n===name);
+    document.getElementById('nav-'+n).classList.toggle('active', n===name);
+  });
+  if(name==='log') renderLog();
+  if(name==='stats') renderStats();
+  if(name==='settings') updateOdUI();
+}
+</script>
+</body>
+</html>

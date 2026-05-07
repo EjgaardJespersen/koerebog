@@ -662,21 +662,10 @@ const SP_SCOPES    = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https:
 })();
 
 // ═══ MSAL / LOGIN ═══
-function debugLog(msg){
-  console.log('MSAL DEBUG:', msg);
-  const el = document.getElementById('login-error');
-  if(el){ el.textContent += '\n' + msg; el.style.display = 'block'; el.style.whiteSpace = 'pre-wrap'; }
-}
-
 async function initMsal(){
   try {
-    debugLog('1. Venter på MSAL bibliotek...');
     await window._msalReady;
-    if(typeof msal === 'undefined'){
-      debugLog('FEJL: msal undefined efter load');
-      showLoginScreen(); return;
-    }
-    debugLog('2. MSAL loaded. Opretter instans...');
+    if(typeof msal === 'undefined') throw new Error('MSAL bibliotek ikke tilgængeligt');
 
     msalInstance = new msal.PublicClientApplication({
       auth: {
@@ -689,41 +678,34 @@ async function initMsal(){
       system: { allowNativeBroker: false }
     });
 
-    debugLog('3. initialize()...');
     await msalInstance.initialize();
-    debugLog('4. handleRedirectPromise()...');
 
     let resp = null;
     try {
       resp = await msalInstance.handleRedirectPromise();
     } catch(redirectErr){
-      debugLog('Redirect fejl: ' + redirectErr.message);
+      console.warn('Redirect fejl:', redirectErr);
       showLoginScreen(); return;
     }
-
-    debugLog('5. resp = ' + (resp ? resp.account?.username : 'null'));
 
     if(resp && resp.account){
       odAccount = resp.account;
       settings.odAccountName = resp.account.name || resp.account.username;
       saveSettings();
-      debugLog('6. Åbner app...');
       revealApp();
       return;
     }
 
     const accounts = msalInstance.getAllAccounts();
-    debugLog('7. getAllAccounts: ' + accounts.length);
     if(accounts.length > 0){
       odAccount = accounts[0];
       settings.odAccountName = odAccount.name || odAccount.username;
       revealApp();
     } else {
-      debugLog('8. Ingen konto — viser login');
       showLoginScreen();
     }
   } catch(e){
-    debugLog('FEJL: ' + e.message);
+    console.warn('MSAL init fejl:', e);
     showLoginScreen();
   }
 }
@@ -888,11 +870,23 @@ function saveClientId(){
 async function getGraphToken(){
   if(!msalInstance || !odAccount) return null;
   try {
-    const r = await msalInstance.acquireTokenSilent({ scopes: SP_SCOPES, account: odAccount });
+    const r = await msalInstance.acquireTokenSilent({
+      scopes: SP_SCOPES,
+      account: odAccount
+    });
     return r.accessToken;
   } catch(e){
-    const r = await msalInstance.acquireTokenPopup({ scopes: SP_SCOPES, account: odAccount });
-    return r.accessToken;
+    // Token ikke cached — bed bruger om at give tilladelse
+    try {
+      const r = await msalInstance.acquireTokenRedirect({
+        scopes: SP_SCOPES,
+        account: odAccount
+      });
+      return r ? r.accessToken : null;
+    } catch(e2){
+      console.warn('Token fejl:', e2);
+      return null;
+    }
   }
 }
 
@@ -1304,13 +1298,16 @@ async function saveTrip(){
   showToast('✓ Kørsel gemt', 'success');
   renderLog();
 
-  // OneDrive sync
-  if(odAccount && settings.excelPath){
+  // SharePoint sync
+  if(odAccount){
+    showToast('☁️ Synkroniserer til SharePoint...', '');
     const ok = await syncTripToExcel(trip);
     if(ok){
       trips[0].synced = true;
       saveTrips();
-      showToast('☁️ Synkroniseret til SharePoint', 'success');
+      showToast('☁️ Gemt i SharePoint', 'success');
+    } else {
+      showToast('⚠ SharePoint sync fejlede', 'error');
     }
   }
 }

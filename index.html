@@ -527,6 +527,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         </div>
         <button class="od-btn" id="od-btn" onclick="toggleOneDrive()">Forbind</button>
       </div>
+      <div style="margin-top:10px">
+        <button class="export-btn" onclick="testSharePoint()" style="font-size:13px;padding:9px">🧪 Test SharePoint-forbindelse</button>
+        <div id="sp-test-result" style="display:none;margin-top:8px;font-size:12px;border-radius:8px;padding:8px 12px;line-height:1.5;white-space:pre-wrap"></div>
+      </div>
     </div>
 
     <!-- Favoritter -->
@@ -644,7 +648,7 @@ const SP_SITE    = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
 const SP_FILE    = 'Kørebog_AppVersion.xlsx';
 const CLIENT_ID  = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
 const TENANT_ID  = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
-const LOGIN_SCOPES = ['User.Read', 'openid', 'profile'];
+const LOGIN_SCOPES = ['User.Read', 'openid', 'profile', 'https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All'];
 const SP_SCOPES    = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All'];
 
 // ═══ INIT ═══
@@ -828,6 +832,57 @@ function doLogout(){
   showLoginScreen();
 }
 
+async function testSharePoint(){
+  const el = document.getElementById('sp-test-result');
+  el.style.display = 'block';
+  el.style.background = 'var(--surface2)';
+  el.style.color = 'var(--text2)';
+  el.textContent = 'Tester...';
+
+  const log = (msg) => { el.textContent += '\n' + msg; };
+
+  try {
+    log('odAccount: ' + (odAccount ? odAccount.username : 'NULL ❌'));
+    if(!odAccount){ el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+
+    log('Henter token...');
+    const token = await getGraphToken();
+    log('Token: ' + (token ? '✓ OK (' + token.slice(0,20) + '...)' : 'NULL ❌'));
+    if(!token){ el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+
+    log('Finder SharePoint site...');
+    const siteUrl = `https://graph.microsoft.com/v1.0/sites/${new URL(SP_SITE).hostname}:${new URL(SP_SITE).pathname}`;
+    const siteRes = await fetch(siteUrl, { headers: { Authorization: 'Bearer ' + token } });
+    log('Site HTTP: ' + siteRes.status);
+    if(!siteRes.ok){ const t=await siteRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+    const site = await siteRes.json();
+    log('Site ID: ' + site.id);
+
+    log('Finder Excel-fil...');
+    const fileRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodeURIComponent(SP_FILE)}`, { headers: { Authorization: 'Bearer ' + token } });
+    log('Fil HTTP: ' + fileRes.status);
+    if(!fileRes.ok){ const t=await fileRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+    const file = await fileRes.json();
+    log('Fil ID: ' + file.id);
+
+    log('Finder tabel...');
+    const tabRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${file.id}/workbook/tables`, { headers: { Authorization: 'Bearer ' + token } });
+    log('Tabel HTTP: ' + tabRes.status);
+    if(!tabRes.ok){ const t=await tabRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+    const tabs = await tabRes.json();
+    log('Tabeller: ' + JSON.stringify((tabs.value||[]).map(t=>t.name)));
+
+    el.textContent = el.textContent.trim();
+    el.style.background = 'var(--green-light)';
+    el.style.color = 'var(--green)';
+    log('\n✓ Alt OK!');
+  } catch(e){
+    log('EXCEPTION: ' + e.message);
+    el.style.background = 'var(--red-light)';
+    el.style.color = 'var(--red)';
+  }
+}
+
 function toggleOneDrive(){
   if(odAccount){ disconnectOneDrive(); return; }
   if(!settings.clientId){ showToast('Angiv Azure Client ID i feltet nedenfor', 'error'); return; }
@@ -876,17 +931,8 @@ async function getGraphToken(){
     });
     return r.accessToken;
   } catch(e){
-    // Token ikke cached — bed bruger om at give tilladelse
-    try {
-      const r = await msalInstance.acquireTokenRedirect({
-        scopes: SP_SCOPES,
-        account: odAccount
-      });
-      return r ? r.accessToken : null;
-    } catch(e2){
-      console.warn('Token fejl:', e2);
-      return null;
-    }
+    console.warn('Silent token fejl:', e);
+    return null;
   }
 }
 
@@ -1312,15 +1358,15 @@ async function saveTrip(){
 
   // SharePoint sync
   if(odAccount){
-    showToast('☁️ Synkroniserer til SharePoint...', '');
+    showToast('☁️ Synkroniserer...', '');
     const ok = await syncTripToExcel(trip);
     if(ok){
       trips[0].synced = true;
       saveTrips();
       showToast('☁️ Gemt i SharePoint', 'success');
-    } else {
-      showToast('⚠ SharePoint sync fejlede', 'error');
     }
+  } else {
+    showToast('⚠ Log ind igen for at synkronisere', 'error');
   }
 }
 

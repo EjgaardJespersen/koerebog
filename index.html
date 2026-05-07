@@ -1397,12 +1397,14 @@ async function saveTrip(){
     showSyncBanner('☁️ Synkroniserer til SharePoint...');
     try {
       const ok = await syncTripToExcel(trip);
+      alert('syncTripToExcel returnerede: ' + ok);
       if(ok){
         trips[0].synced = true;
         saveTrips();
         showSyncBanner('✓ Gemt i SharePoint', true);
       }
     } catch(e){
+      alert('Sync exception: ' + e.message);
       showSyncBanner('⚠ Sync fejl: ' + e.message, false, true);
     }
   }

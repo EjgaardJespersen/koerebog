@@ -385,6 +385,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <span class="spinner"></span> Logger ind...
     </div>
     <div class="login-note">Kun brugere med en kasperejgaard.dk Microsoft-konto kan logge ind</div>
+    <div id="login-error" style="display:none;margin-top:12px;font-size:12px;color:var(--red);background:var(--red-light);border-radius:8px;padding:8px 12px;text-align:left;line-height:1.4"></div>
   </div>
 </div>
 
@@ -639,11 +640,12 @@ let msalInstance = null;
 let odAccount = null;
 
 // ═══ SHAREPOINT CONFIG (hardkodet) ═══
-const SP_SITE   = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
-const SP_FILE   = 'Kørebog_AppVersion.xlsx';
-const CLIENT_ID = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
-const TENANT_ID = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
-const SP_SCOPES = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All', 'https://graph.microsoft.com/User.Read'];
+const SP_SITE    = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
+const SP_FILE    = 'Kørebog_AppVersion.xlsx';
+const CLIENT_ID  = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
+const TENANT_ID  = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
+const LOGIN_SCOPES = ['User.Read', 'openid', 'profile'];
+const SP_SCOPES    = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All'];
 
 // ═══ INIT ═══
 (function init(){
@@ -660,42 +662,68 @@ const SP_SCOPES = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://g
 })();
 
 // ═══ MSAL / LOGIN ═══
+function debugLog(msg){
+  console.log('MSAL DEBUG:', msg);
+  const el = document.getElementById('login-error');
+  if(el){ el.textContent += '\n' + msg; el.style.display = 'block'; el.style.whiteSpace = 'pre-wrap'; }
+}
+
 async function initMsal(){
   try {
+    debugLog('1. Venter på MSAL bibliotek...');
     await window._msalReady;
-    if(typeof msal === 'undefined') throw new Error('MSAL bibliotek ikke tilgængeligt');
+    if(typeof msal === 'undefined'){
+      debugLog('FEJL: msal undefined efter load');
+      showLoginScreen(); return;
+    }
+    debugLog('2. MSAL loaded. Opretter instans...');
 
     msalInstance = new msal.PublicClientApplication({
       auth: {
         clientId: CLIENT_ID,
         authority: `https://login.microsoftonline.com/${TENANT_ID}`,
-        redirectUri: 'https://bil.kasperejgaard.dk'
+        redirectUri: 'https://bil.kasperejgaard.dk',
+        navigateToLoginRequestUrl: true
       },
       cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
       system: { allowNativeBroker: false }
     });
 
+    debugLog('3. initialize()...');
     await msalInstance.initialize();
+    debugLog('4. handleRedirectPromise()...');
 
-    const resp = await msalInstance.handleRedirectPromise();
+    let resp = null;
+    try {
+      resp = await msalInstance.handleRedirectPromise();
+    } catch(redirectErr){
+      debugLog('Redirect fejl: ' + redirectErr.message);
+      showLoginScreen(); return;
+    }
+
+    debugLog('5. resp = ' + (resp ? resp.account?.username : 'null'));
+
     if(resp && resp.account){
       odAccount = resp.account;
       settings.odAccountName = resp.account.name || resp.account.username;
       saveSettings();
+      debugLog('6. Åbner app...');
       revealApp();
       return;
     }
 
     const accounts = msalInstance.getAllAccounts();
+    debugLog('7. getAllAccounts: ' + accounts.length);
     if(accounts.length > 0){
       odAccount = accounts[0];
       settings.odAccountName = odAccount.name || odAccount.username;
       revealApp();
     } else {
+      debugLog('8. Ingen konto — viser login');
       showLoginScreen();
     }
   } catch(e){
-    console.warn('MSAL init fejl:', e);
+    debugLog('FEJL: ' + e.message);
     showLoginScreen();
   }
 }
@@ -779,18 +807,25 @@ function showLoginScreen(){
   document.getElementById('login-loading').style.display = 'none';
   document.getElementById('login-btn').style.display = 'flex';
 }
+function showLoginError(msg){
+  showLoginScreen();
+  const el = document.getElementById('login-error');
+  if(el){ el.textContent = '⚠ ' + msg; el.style.display = 'block'; }
+}
+
 function doLogin(){
   document.getElementById('login-loading').style.display = 'flex';
   document.getElementById('login-btn').style.display = 'none';
+  const errEl = document.getElementById('login-error');
+  if(errEl) errEl.style.display = 'none';
 
   const tryLogin = () => {
     if(!msalInstance){ setTimeout(tryLogin, 200); return; }
     try {
-      msalInstance.loginRedirect({ scopes: SP_SCOPES, prompt: 'select_account' });
+      msalInstance.loginRedirect({ scopes: LOGIN_SCOPES, prompt: 'select_account' });
     } catch(e){
       console.warn('loginRedirect fejl:', e);
-      showLoginScreen();
-      alert('Login fejlede: ' + (e.message || e));
+      showLoginError(e.message || 'Ukendt fejl');
     }
   };
   tryLogin();

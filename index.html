@@ -931,7 +931,7 @@ async function getGraphToken(){
   if(!msalInstance || !odAccount) return null;
   try {
     const r = await msalInstance.acquireTokenSilent({
-      scopes: SP_SCOPES,
+      scopes: LOGIN_SCOPES,
       account: odAccount
     });
     return r.accessToken;
@@ -979,12 +979,10 @@ async function getOrCreateSpTable(token, siteId, fileId){
 }
 
 async function syncTripToExcel(trip){
-  alert('syncTripToExcel START');
   if(!odAccount) return false;
   try {
-    alert('Henter token...');
     const token = await getGraphToken();
-    alert('Token: ' + (token ? token.slice(0,20) : 'NULL'));
+    if(!token){ showToast('⚠ Kunne ikke hente adgangstoken', 'error'); return false; }
     const { fileId, siteId } = await getSpFileId(token);
     const t = await getOrCreateSpTable(token, siteId, fileId);
 
@@ -1365,7 +1363,6 @@ function checkSaveReady(){
 
 // ═══ SAVE TRIP ═══
 async function saveTrip(){
-  alert('DEBUG: odAccount = ' + (odAccount ? odAccount.username : 'NULL') + '\nmsalInstance = ' + (msalInstance ? 'OK' : 'NULL'));
   const btn = document.getElementById('save-btn');
   const oStart = parseInt(document.getElementById('odo-start').value);
   const oEnd   = parseInt(document.getElementById('odo-end').value);
@@ -1388,22 +1385,17 @@ async function saveTrip(){
   };
 
   trips.unshift(trip);
-  alert('TRIN 1: trip tilføjet');
   saveTrips();
-  alert('TRIN 2: saveTrips OK');
   updateTotalBadge();
   renderLog();
-  alert('TRIN 3: renderLog OK');
   setSaveBtnStatus('✓ Kørsel gemt!', '#16a34a');
   resetForm();
-  alert('TRIN 4: resetForm OK - odAccount=' + (odAccount ? 'SAT' : 'NULL'));
 
   // SharePoint sync
   if(odAccount){
     showSyncBanner('☁️ Synkroniserer til SharePoint...');
     try {
       const ok = await syncTripToExcel(trip);
-      alert('syncTripToExcel returnerede: ' + ok);
       if(ok){
         trips[0].synced = true;
         saveTrips();

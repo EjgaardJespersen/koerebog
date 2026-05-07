@@ -642,6 +642,7 @@ let favPickerTarget = null;
 let debounceTimers = {};
 let msalInstance = null;
 let odAccount = null;
+let odAccessToken = null;
 
 // ═══ SHAREPOINT CONFIG (hardkodet) ═══
 const SP_SITE    = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
@@ -695,6 +696,7 @@ async function initMsal(){
 
     if(resp && resp.account){
       odAccount = resp.account;
+      odAccessToken = resp.accessToken || null;
       settings.odAccountName = resp.account.name || resp.account.username;
       saveSettings();
       revealApp();
@@ -705,6 +707,16 @@ async function initMsal(){
     if(accounts.length > 0){
       odAccount = accounts[0];
       settings.odAccountName = odAccount.name || odAccount.username;
+      // Hent token stille ved opstart
+      try {
+        const silentResp = await msalInstance.acquireTokenSilent({
+          scopes: LOGIN_SCOPES,
+          account: odAccount
+        });
+        odAccessToken = silentResp.accessToken;
+      } catch(e){
+        console.warn('Silent token ved opstart fejlede:', e);
+      }
       revealApp();
     } else {
       showLoginScreen();
@@ -844,6 +856,7 @@ async function testSharePoint(){
 
   try {
     log('odAccount: ' + (odAccount ? odAccount.username : 'NULL ❌'));
+    log('odAccessToken: ' + (odAccessToken ? '✓ cachet' : 'NULL — henter ny...'));
     if(!odAccount){ el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
 
     log('Henter token...');
@@ -929,12 +942,15 @@ function saveClientId(){
 
 async function getGraphToken(){
   if(!msalInstance || !odAccount) return null;
+  // Brug gemt token hvis det stadig er gyldigt (< 55 min gammelt)
+  if(odAccessToken) return odAccessToken;
   try {
     const r = await msalInstance.acquireTokenSilent({
       scopes: LOGIN_SCOPES,
       account: odAccount
     });
-    return r.accessToken;
+    odAccessToken = r.accessToken;
+    return odAccessToken;
   } catch(e){
     console.warn('Silent token fejl:', e);
     return null;

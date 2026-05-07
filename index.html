@@ -892,16 +892,21 @@ async function getGraphToken(){
 
 // ── SharePoint fil-ID og tabel-ID ──
 async function getSpFileId(token){
-  // Slå site-id op, derefter find filen via drive/root search
   const siteUrl = `https://graph.microsoft.com/v1.0/sites/${new URL(SP_SITE).hostname}:${new URL(SP_SITE).pathname}`;
   const siteRes = await fetch(siteUrl, { headers: { Authorization: 'Bearer ' + token } });
-  if(!siteRes.ok) throw new Error('Kan ikke finde SharePoint-site');
+  if(!siteRes.ok){
+    const err = await siteRes.text();
+    throw new Error('Site fejl ' + siteRes.status + ': ' + err.slice(0,120));
+  }
   const site = await siteRes.json();
 
   const driveRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodeURIComponent(SP_FILE)}`, {
     headers: { Authorization: 'Bearer ' + token }
   });
-  if(!driveRes.ok) throw new Error('Kan ikke finde Excel-filen på SharePoint');
+  if(!driveRes.ok){
+    const err = await driveRes.text();
+    throw new Error('Fil fejl ' + driveRes.status + ': ' + err.slice(0,120));
+  }
   const file = await driveRes.json();
   return { fileId: file.id, siteId: site.id };
 }
@@ -909,20 +914,22 @@ async function getSpFileId(token){
 async function getOrCreateSpTable(token, siteId, fileId){
   const tablesUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables`;
   const r = await fetch(tablesUrl, { headers: { Authorization: 'Bearer ' + token } });
-  if(!r.ok) return null;
+  if(!r.ok){
+    const err = await r.text();
+    throw new Error('Tabel fejl ' + r.status + ': ' + err.slice(0,120));
+  }
   const data = await r.json();
   if(data.value && data.value.length > 0) return { tableId: data.value[0].id, siteId };
-  return null;
+  throw new Error('Ingen tabel fundet i Excel-filen — er filen formateret som en tabel?');
 }
 
 async function syncTripToExcel(trip){
   if(!odAccount) return false;
   try {
     const token = await getGraphToken();
-    if(!token) return false;
+    if(!token){ showToast('⚠ Kunne ikke hente adgangstoken', 'error'); return false; }
     const { fileId, siteId } = await getSpFileId(token);
     const t = await getOrCreateSpTable(token, siteId, fileId);
-    if(!t) return false;
 
     const rowUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${t.tableId}/rows/add`;
     const rowData = { values: [[
@@ -935,9 +942,14 @@ async function syncTripToExcel(trip){
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify(rowData)
     });
-    return r.ok;
+    if(!r.ok){
+      const err = await r.text();
+      throw new Error('Række fejl ' + r.status + ': ' + err.slice(0,120));
+    }
+    return true;
   } catch(e){
     console.warn('SharePoint sync error:', e);
+    showToast('⚠ ' + e.message, 'error');
     return false;
   }
 }

@@ -651,26 +651,16 @@ function initMsal(clientId){
       },
       cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
     });
-    msalInstance.handleRedirectPromise().then(resp => {
-      if(resp){
-        odAccount = resp.account;
-        settings.odAccountName = resp.account.name || resp.account.username;
-        saveSettings();
-      }
-      // Check if we have any logged-in account
+    msalInstance.handleRedirectPromise().then(() => {
       const accounts = msalInstance.getAllAccounts();
       if(accounts.length > 0){
-        odAccount = odAccount || accounts[0];
+        odAccount = accounts[0];
         settings.odAccountName = odAccount.name || odAccount.username;
         revealApp();
       } else {
-        // No account — show login screen
         showLoginScreen();
       }
-    }).catch(e => {
-      console.warn('MSAL redirect:', e);
-      showLoginScreen();
-    });
+    }).catch(() => showLoginScreen());
   } catch(e) {
     console.warn('MSAL init error:', e);
     showLoginScreen();
@@ -717,30 +707,41 @@ function showLoginScreen(){
   document.getElementById('login-btn').style.display = 'flex';
 }
 
-function saveLoginClientId(){} // ikke længere i brug
-
 function doLogin(){
   if(!msalInstance) initMsal(CLIENT_ID);
   document.getElementById('login-loading').style.display = 'flex';
   document.getElementById('login-btn').style.display = 'none';
-  try {
-    msalInstance.loginRedirect({ scopes: SP_SCOPES });
-  } catch(e) {
-    showLoginScreen();
-    alert('Login fejlede: ' + e.message);
-  }
+  msalInstance.loginPopup({ scopes: SP_SCOPES })
+    .then(resp => {
+      odAccount = resp.account;
+      settings.odAccountName = resp.account.name || resp.account.username;
+      saveSettings();
+      revealApp();
+    })
+    .catch(e => {
+      console.warn('Login fejl:', e);
+      showLoginScreen();
+      alert('Login fejlede: ' + (e.message || e));
+    });
 }
 
 function doLogout(){
   if(!confirm('Log ud af Kørebog?')) return;
   odAccount = null;
-  if(msalInstance){
-    const accounts = msalInstance.getAllAccounts();
-    accounts.forEach(a => msalInstance.logoutRedirect({ account: a }).catch(()=>{}));
-  }
   delete settings.odAccountName;
   saveSettings();
-  showLoginScreen();
+  if(msalInstance){
+    const accounts = msalInstance.getAllAccounts();
+    if(accounts.length > 0){
+      msalInstance.logoutPopup({ account: accounts[0] })
+        .catch(() => {})
+        .finally(() => showLoginScreen());
+    } else {
+      showLoginScreen();
+    }
+  } else {
+    showLoginScreen();
+  }
 }
 
 function toggleOneDrive(){

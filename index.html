@@ -9,7 +9,13 @@
 <title>Kørebog – Kasper Ejgaard Jespersen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js" crossorigin="anonymous"></script>
+<script>
+// Fallback hvis primær CDN fejler
+if(typeof msal === 'undefined'){
+  document.write('<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js" crossorigin="anonymous"><\/script>');
+}
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -767,21 +773,20 @@ function showLoginScreen(){
   document.getElementById('login-btn').style.display = 'flex';
 }
 function doLogin(){
-  if(!msalInstance) initMsal(CLIENT_ID);
   document.getElementById('login-loading').style.display = 'flex';
   document.getElementById('login-btn').style.display = 'none';
-  msalInstance.loginPopup({ scopes: SP_SCOPES })
-    .then(resp => {
-      odAccount = resp.account;
-      settings.odAccountName = resp.account.name || resp.account.username;
-      saveSettings();
-      revealApp();
-    })
-    .catch(e => {
-      console.warn('Login fejl:', e);
+
+  const tryLogin = () => {
+    if(!msalInstance){ setTimeout(tryLogin, 200); return; }
+    try {
+      msalInstance.loginRedirect({ scopes: SP_SCOPES, prompt: 'select_account' });
+    } catch(e){
+      console.warn('loginRedirect fejl:', e);
       showLoginScreen();
       alert('Login fejlede: ' + (e.message || e));
-    });
+    }
+  };
+  tryLogin();
 }
 
 function doLogout(){
@@ -792,15 +797,11 @@ function doLogout(){
   if(msalInstance){
     const accounts = msalInstance.getAllAccounts();
     if(accounts.length > 0){
-      msalInstance.logoutPopup({ account: accounts[0] })
-        .catch(() => {})
-        .finally(() => showLoginScreen());
-    } else {
-      showLoginScreen();
+      msalInstance.logoutRedirect({ account: accounts[0], postLogoutRedirectUri: 'https://bil.kasperejgaard.dk' });
+      return;
     }
-  } else {
-    showLoginScreen();
   }
+  showLoginScreen();
 }
 
 function toggleOneDrive(){

@@ -9,12 +9,22 @@
 <title>Kørebog – Kasper Ejgaard Jespersen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js" crossorigin="anonymous"></script>
 <script>
-// Fallback hvis primær CDN fejler
-if(typeof msal === 'undefined'){
-  document.write('<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js" crossorigin="anonymous"><\/script>');
+// Indlæs MSAL dynamisk og vent på det er klar
+function loadMsalScript(src){
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.crossOrigin = 'anonymous';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
 }
+
+window._msalReady = loadMsalScript('https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js')
+  .catch(() => loadMsalScript('https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js'))
+  .catch(() => { console.error('MSAL kunne ikke indlæses'); });
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -652,10 +662,12 @@ const CLIENT_ID  = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
 const TENANT_ID  = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
 const SP_SCOPES  = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All', 'https://graph.microsoft.com/User.Read'];
 
-// ═══ MSAL / SHAREPOINT ═══
 // ═══ MSAL / LOGIN ═══
 async function initMsal(){
   try {
+    await window._msalReady;
+    if(typeof msal === 'undefined') throw new Error('MSAL bibliotek ikke tilgængeligt');
+
     msalInstance = new msal.PublicClientApplication({
       auth: {
         clientId: CLIENT_ID,
@@ -668,7 +680,6 @@ async function initMsal(){
 
     await msalInstance.initialize();
 
-    // Handle return from Microsoft login redirect
     const resp = await msalInstance.handleRedirectPromise();
     if(resp && resp.account){
       odAccount = resp.account;
@@ -678,7 +689,6 @@ async function initMsal(){
       return;
     }
 
-    // Check if already logged in
     const accounts = msalInstance.getAllAccounts();
     if(accounts.length > 0){
       odAccount = accounts[0];

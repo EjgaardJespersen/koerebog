@@ -638,6 +638,13 @@ let debounceTimers = {};
 let msalInstance = null;
 let odAccount = null;
 
+// ═══ SHAREPOINT CONFIG (hardkodet) ═══
+const SP_SITE   = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
+const SP_FILE   = 'Kørebog_AppVersion.xlsx';
+const CLIENT_ID = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
+const TENANT_ID = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
+const SP_SCOPES = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All', 'https://graph.microsoft.com/User.Read'];
+
 // ═══ INIT ═══
 (function init(){
   document.getElementById('login-screen').style.display = 'flex';
@@ -651,16 +658,6 @@ let odAccount = null;
   document.getElementById('top-date').textContent = now.toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('trip-date').value = now.toISOString().split('T')[0];
 })();
-
-// ═══ MSAL / ONEDRIVE ═══
-// initMsal og SharePoint-funktioner defineret nedenfor
-
-// ═══ SHAREPOINT CONFIG (hardkodet) ═══
-const SP_SITE    = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
-const SP_FILE    = 'Kørebog_AppVersion.xlsx';
-const CLIENT_ID  = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
-const TENANT_ID  = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
-const SP_SCOPES  = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All', 'https://graph.microsoft.com/User.Read'];
 
 // ═══ MSAL / LOGIN ═══
 async function initMsal(){

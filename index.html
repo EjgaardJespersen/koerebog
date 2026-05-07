@@ -268,7 +268,55 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .btn-primary-sm:active{opacity:0.85}
 .empty-favs{text-align:center;padding:24px;color:var(--muted);font-size:13px}
 
-/* ═══ ONEDRIVE STATUS ═══ */
+/* ═══ LOGIN SCREEN ═══ */
+.login-screen{
+  position:fixed;inset:0;
+  background:var(--bg);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  z-index:9999;padding:32px 24px;
+  padding-top:calc(var(--sat) + 32px);
+}
+.login-card{
+  background:var(--surface);
+  border-radius:24px;
+  box-shadow:0 4px 40px rgba(0,0,0,0.1);
+  padding:36px 28px;
+  width:100%;max-width:340px;
+  text-align:center;
+}
+.login-icon{
+  width:64px;height:64px;border-radius:18px;
+  background:linear-gradient(145deg,#3b82f6,#1d4faa);
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;margin:0 auto 20px;
+  box-shadow:0 4px 20px rgba(47,109,228,0.35);
+}
+.login-title{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-bottom:6px}
+.login-sub{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:28px}
+.login-ms-btn{
+  width:100%;padding:13px 16px;
+  background:#fff;
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:'Outfit',sans-serif;
+  font-size:15px;font-weight:700;
+  color:var(--text);
+  cursor:pointer;
+  transition:background .15s,box-shadow .15s;
+  box-shadow:var(--shadow-sm);
+  -webkit-appearance:none;margin-bottom:12px;
+}
+.login-ms-btn:active{background:var(--surface2)}
+.login-ms-logo{width:20px;height:20px;flex-shrink:0}
+.login-note{font-size:11px;color:var(--muted);margin-top:16px;line-height:1.5}
+.login-loading{font-size:14px;color:var(--muted);display:flex;align-items:center;gap:8px;justify-content:center;margin-top:16px}
+.login-client-wrap{margin-top:20px;border-top:1px solid var(--border);padding-top:16px;text-align:left}
+.login-client-label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;display:block}
+.login-client-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-size:12px;font-family:monospace;color:var(--text);outline:none;-webkit-appearance:none}
+.login-client-input:focus{border-color:var(--blue)}
+.login-save-btn{margin-top:8px;width:100%;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;-webkit-appearance:none}
 .onedrive-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
 .od-row{display:flex;align-items:center;gap:12px}
 .od-logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#0078d4,#005fa3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
@@ -301,7 +349,30 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 </style>
 </head>
 <body>
-<div class="app" id="app">
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="login-icon">🚗</div>
+    <div class="login-title">Kørebog</div>
+    <div class="login-sub">Kasper Ejgaard Jespersen<br>Log ind med din Microsoft 365-konto for at fortsætte</div>
+    <button class="login-ms-btn" id="login-btn" onclick="doLogin()">
+      <svg class="login-ms-logo" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Log ind med Microsoft
+    </button>
+    <div class="login-loading" id="login-loading" style="display:none">
+      <span class="spinner"></span> Logger ind...
+    </div>
+    <div class="login-note">Kun brugere med en kasperejgaard.dk Microsoft-konto kan logge ind</div>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none">
 
   <!-- TOPBAR -->
   <div class="topbar-wrap">
@@ -429,31 +500,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   <!-- ═══ VIEW: INDSTILLINGER ═══ -->
   <div class="view" id="view-settings">
 
-    <!-- OneDrive -->
+    <!-- SharePoint -->
     <div class="onedrive-card">
       <div class="od-row">
-        <div class="od-logo">☁️</div>
+        <div class="od-logo">📊</div>
         <div class="od-info">
-          <div class="od-title">OneDrive / Excel</div>
+          <div class="od-title">SharePoint / Excel</div>
           <div class="od-status" id="od-status-text">Ikke forbundet</div>
         </div>
         <button class="od-btn" id="od-btn" onclick="toggleOneDrive()">Forbind</button>
-      </div>
-      <div class="od-file-field" id="od-file-field" style="display:none">
-        <input id="od-filepath" type="text" placeholder="Stifinder: Dokumenter/Kørebog.xlsx" value="">
-        <button class="calc-btn" onclick="saveOdSettings()" style="padding:9px 12px">Gem</button>
-      </div>
-      <div class="od-help" id="od-help">
-        <strong>Opsætning:</strong> Du skal registrere en gratis Azure-app (tager ~2 min):<br>
-        1. Gå til <code>portal.azure.com</code> → App registrations → New<br>
-        2. Vælg "Single-page application", redirect URI = siden URL<br>
-        3. Kopiér <strong>Application (client) ID</strong> herunder og tryk Gem<br><br>
-        <input id="od-client-id" type="text" placeholder="Indsæt Azure Client ID her..."
-          style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;width:100%;font-family:monospace;color:var(--text);outline:none;margin-top:2px">
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="btn-primary-sm" onclick="saveClientId()" style="flex:none;padding:8px 14px">Gem Client ID</button>
-          <span id="client-id-saved" style="color:var(--green);font-size:12px;align-self:center;display:none">✓ Gemt</span>
-        </div>
       </div>
     </div>
 
@@ -473,6 +528,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="card">
       <div class="card-title">📤 Eksport</div>
       <button class="export-btn" onclick="exportCSV()">⬇️ Download som CSV-fil</button>
+    </div>
+
+    <!-- Log ud -->
+    <div class="settings-section">
+      <div class="settings-row">
+        <div class="settings-icon" style="background:var(--blue-light)">👤</div>
+        <div class="settings-info">
+          <div class="settings-label">Microsoft-konto</div>
+          <div class="settings-sub" id="logged-in-as">–</div>
+        </div>
+        <button class="settings-action red" onclick="doLogout()">Log ud</button>
+      </div>
     </div>
 
     <!-- Ryd data -->
@@ -557,30 +624,75 @@ let odAccount = null;
 
 // ═══ INIT ═══
 (function init(){
+  initMsal(CLIENT_ID);
   const now = new Date();
   document.getElementById('top-date').textContent = now.toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('trip-date').value = now.toISOString().split('T')[0];
+})();
+
+// ═══ MSAL / ONEDRIVE ═══
+// initMsal og SharePoint-funktioner defineret nedenfor
+
+// ═══ SHAREPOINT CONFIG (hardkodet) ═══
+const SP_SITE    = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
+const SP_FILE    = 'Kørebog_AppVersion.xlsx';
+const CLIENT_ID  = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
+const TENANT_ID  = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
+const SP_SCOPES  = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All', 'https://graph.microsoft.com/User.Read'];
+
+// ═══ MSAL / SHAREPOINT ═══
+function initMsal(clientId){
+  try {
+    msalInstance = new msal.PublicClientApplication({
+      auth: {
+        clientId: CLIENT_ID,
+        authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+        redirectUri: window.location.href.split('?')[0].split('#')[0]
+      },
+      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+    });
+    msalInstance.handleRedirectPromise().then(resp => {
+      if(resp){
+        odAccount = resp.account;
+        settings.odAccountName = resp.account.name || resp.account.username;
+        saveSettings();
+      }
+      // Check if we have any logged-in account
+      const accounts = msalInstance.getAllAccounts();
+      if(accounts.length > 0){
+        odAccount = odAccount || accounts[0];
+        settings.odAccountName = odAccount.name || odAccount.username;
+        revealApp();
+      } else {
+        // No account — show login screen
+        showLoginScreen();
+      }
+    }).catch(e => {
+      console.warn('MSAL redirect:', e);
+      showLoginScreen();
+    });
+  } catch(e) {
+    console.warn('MSAL init error:', e);
+    showLoginScreen();
+  }
+}
+
+function revealApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('app').style.flexDirection = 'column';
+
+  // Init app after login
   updateTotalBadge();
   updateFavCountLabel();
 
-  // Load saved settings
-  if(settings.clientId) document.getElementById('od-client-id').value = settings.clientId;
-  if(settings.excelPath) document.getElementById('od-filepath').value = settings.excelPath;
-
-  // Attach autocomplete to address inputs
   ['from','via','to'].forEach(id => setupAutocomplete(id));
-
-  // Enable save btn check
   ['from','to','odo-start','odo-end'].forEach(id => {
     document.getElementById(id).addEventListener('input', checkSaveReady);
   });
-
-  // Enable calc btn check
   ['from','to'].forEach(id => {
     document.getElementById(id).addEventListener('input', checkCalcReady);
   });
-
-  // Auto-calc when both from+to filled (debounced)
   ['from','via','to'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       clearTimeout(debounceTimers['autoCalc']);
@@ -591,43 +703,44 @@ let odAccount = null;
       }, 1800);
     });
   });
-
   document.getElementById('odo-start').addEventListener('input', () => updateOdoFields('start'));
   document.getElementById('odo-end').addEventListener('input', () => updateOdoFields('end'));
-
-  // Init OneDrive if clientId saved
-  if(settings.clientId) initMsal(settings.clientId);
+  const nameEl = document.getElementById('logged-in-as');
+  if(nameEl) nameEl.textContent = settings.odAccountName || odAccount?.username || '–';
   updateOdUI();
-})();
+}
 
-// ═══ MSAL / ONEDRIVE ═══
-function initMsal(clientId){
+function showLoginScreen(){
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-loading').style.display = 'none';
+  document.getElementById('login-btn').style.display = 'flex';
+}
+
+function saveLoginClientId(){} // ikke længere i brug
+
+function doLogin(){
+  if(!msalInstance) initMsal(CLIENT_ID);
+  document.getElementById('login-loading').style.display = 'flex';
+  document.getElementById('login-btn').style.display = 'none';
   try {
-    msalInstance = new msal.PublicClientApplication({
-      auth: {
-        clientId: clientId,
-        authority: 'https://login.microsoftonline.com/common',
-        redirectUri: window.location.href.split('?')[0].split('#')[0]
-      },
-      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
-    });
-    // Handle redirect
-    msalInstance.handleRedirectPromise().then(resp => {
-      if(resp) {
-        odAccount = resp.account;
-        settings.odAccountName = resp.account.name || resp.account.username;
-        saveSettings();
-        updateOdUI();
-        showToast('✓ Forbundet til OneDrive', 'success');
-      }
-    }).catch(e => console.warn('MSAL redirect:', e));
+    msalInstance.loginRedirect({ scopes: SP_SCOPES });
+  } catch(e) {
+    showLoginScreen();
+    alert('Login fejlede: ' + e.message);
+  }
+}
 
+function doLogout(){
+  if(!confirm('Log ud af Kørebog?')) return;
+  odAccount = null;
+  if(msalInstance){
     const accounts = msalInstance.getAllAccounts();
-    if(accounts.length > 0){
-      odAccount = accounts[0];
-      settings.odAccountName = odAccount.name || odAccount.username;
-    }
-  } catch(e) { console.warn('MSAL init error:', e); }
+    accounts.forEach(a => msalInstance.logoutRedirect({ account: a }).catch(()=>{}));
+  }
+  delete settings.odAccountName;
+  saveSettings();
+  showLoginScreen();
 }
 
 function toggleOneDrive(){
@@ -635,12 +748,12 @@ function toggleOneDrive(){
   if(!settings.clientId){ showToast('Angiv Azure Client ID i feltet nedenfor', 'error'); return; }
   if(!msalInstance) initMsal(settings.clientId);
   try {
-    msalInstance.loginRedirect({ scopes: ['Files.ReadWrite', 'User.Read'] });
+    msalInstance.loginRedirect({ scopes: SP_SCOPES });
   } catch(e) { showToast('Login fejlede: ' + e.message, 'error'); }
 }
 
 function disconnectOneDrive(){
-  if(!confirm('Afbryd forbindelsen til OneDrive?')) return;
+  if(!confirm('Afbryd forbindelsen til SharePoint?')) return;
   odAccount = null;
   delete settings.odAccountName;
   if(msalInstance) msalInstance.getAllAccounts().forEach(a => msalInstance.logoutPopup({account: a}).catch(()=>{}));
@@ -654,7 +767,6 @@ function updateOdUI(){
     : 'Ikke forbundet';
   document.getElementById('od-btn').textContent = connected ? 'Afbryd' : 'Forbind';
   document.getElementById('od-btn').className = 'od-btn' + (connected ? ' disconnect' : '');
-  document.getElementById('od-file-field').style.display = connected ? 'flex' : 'none';
   document.getElementById('sync-dot').className = 'sync-dot' + (connected ? ' connected' : '');
   document.getElementById('od-help').style.display = connected ? 'none' : 'block';
 }
@@ -669,47 +781,56 @@ function saveClientId(){
   setTimeout(() => document.getElementById('client-id-saved').style.display = 'none', 2000);
 }
 
-function saveOdSettings(){
-  settings.excelPath = document.getElementById('od-filepath').value.trim();
-  saveSettings();
-  showToast('✓ Sti gemt', 'success');
-}
-
 async function getGraphToken(){
   if(!msalInstance || !odAccount) return null;
   try {
-    const r = await msalInstance.acquireTokenSilent({
-      scopes: ['Files.ReadWrite'],
-      account: odAccount
-    });
+    const r = await msalInstance.acquireTokenSilent({ scopes: SP_SCOPES, account: odAccount });
     return r.accessToken;
   } catch(e){
-    const r = await msalInstance.acquireTokenPopup({ scopes: ['Files.ReadWrite'], account: odAccount });
+    const r = await msalInstance.acquireTokenPopup({ scopes: SP_SCOPES, account: odAccount });
     return r.accessToken;
   }
 }
 
+// ── SharePoint fil-ID og tabel-ID ──
+async function getSpFileId(token){
+  // Slå site-id op, derefter find filen via drive/root search
+  const siteUrl = `https://graph.microsoft.com/v1.0/sites/${new URL(SP_SITE).hostname}:${new URL(SP_SITE).pathname}`;
+  const siteRes = await fetch(siteUrl, { headers: { Authorization: 'Bearer ' + token } });
+  if(!siteRes.ok) throw new Error('Kan ikke finde SharePoint-site');
+  const site = await siteRes.json();
+
+  const driveRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodeURIComponent(SP_FILE)}`, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if(!driveRes.ok) throw new Error('Kan ikke finde Excel-filen på SharePoint');
+  const file = await driveRes.json();
+  return { fileId: file.id, siteId: site.id };
+}
+
+async function getOrCreateSpTable(token, siteId, fileId){
+  const tablesUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables`;
+  const r = await fetch(tablesUrl, { headers: { Authorization: 'Bearer ' + token } });
+  if(!r.ok) return null;
+  const data = await r.json();
+  if(data.value && data.value.length > 0) return { tableId: data.value[0].id, siteId };
+  return null;
+}
+
 async function syncTripToExcel(trip){
-  if(!odAccount || !settings.excelPath) return false;
+  if(!odAccount) return false;
   try {
     const token = await getGraphToken();
     if(!token) return false;
-    const fileId = await getExcelFileId(token);
-    if(!fileId) return false;
-    const tableId = await getOrCreateTable(token, fileId);
-    if(!tableId) return false;
+    const { fileId, siteId } = await getSpFileId(token);
+    const t = await getOrCreateSpTable(token, siteId, fileId);
+    if(!t) return false;
 
-    const rowUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables/${tableId}/rows/add`;
+    const rowUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${t.tableId}/rows/add`;
     const rowData = { values: [[
-      trip.date,         // A: Dato
-      trip.odoStart,     // B: Km-tæller start
-      trip.odoEnd,       // C: Km-tæller slut
-      trip.km,           // D: Antal km
-      trip.from,         // E: Startadr.
-      trip.via || '',    // F: Via
-      trip.to,           // G: Slutadr.
-      trip.purpose || '',// H: Formål
-      String(trip.id)    // I: ID (bruges til sletning)
+      trip.date, trip.odoStart, trip.odoEnd, trip.km,
+      trip.from, trip.via || '', trip.to,
+      trip.purpose || '', String(trip.id)
     ]]};
     const r = await fetch(rowUrl, {
       method: 'POST',
@@ -718,64 +839,38 @@ async function syncTripToExcel(trip){
     });
     return r.ok;
   } catch(e){
-    console.warn('OneDrive sync error:', e);
+    console.warn('SharePoint sync error:', e);
     return false;
   }
 }
 
 async function deleteTripFromExcel(tripId){
-  if(!odAccount || !settings.excelPath) return false;
+  if(!odAccount) return false;
   try {
     const token = await getGraphToken();
     if(!token) return false;
-    const fileId = await getExcelFileId(token);
-    if(!fileId) return false;
-    const tableId = await getOrCreateTable(token, fileId);
-    if(!tableId) return false;
+    const { fileId, siteId } = await getSpFileId(token);
+    const t = await getOrCreateSpTable(token, siteId, fileId);
+    if(!t) return false;
 
-    // Get all rows and find the one matching tripId (column A)
-    const rowsUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables/${tableId}/rows`;
+    const rowsUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${t.tableId}/rows`;
     const r = await fetch(rowsUrl, { headers: { Authorization: 'Bearer ' + token } });
     if(!r.ok) return false;
     const data = await r.json();
 
     const rowIndex = (data.value || []).findIndex(row => String(row.values[0][8]) === String(tripId));
-    if(rowIndex === -1) return false; // row not found in Excel
+    if(rowIndex === -1) return false;
 
-    // Delete by row index (0-based within table body)
-    const delUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables/${tableId}/rows/itemAt(index=${rowIndex})`;
+    const delUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${t.tableId}/rows/itemAt(index=${rowIndex})`;
     const delRes = await fetch(delUrl, {
       method: 'DELETE',
       headers: { Authorization: 'Bearer ' + token }
     });
     return delRes.ok;
   } catch(e){
-    console.warn('OneDrive delete error:', e);
+    console.warn('SharePoint delete error:', e);
     return false;
   }
-}
-
-// ── Shared helpers ──
-async function getExcelFileId(token){
-  const path = settings.excelPath.replace(/\\/g,'/').replace(/^\/+/,'');
-  const encPath = path.split('/').map(encodeURIComponent).join('/');
-  const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encPath}`;
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-  if(r.ok){ const d = await r.json(); return d.id; }
-  return null;
-}
-
-async function getOrCreateTable(token, fileId){
-  const tablesUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables`;
-  const r = await fetch(tablesUrl, { headers: { Authorization: 'Bearer ' + token } });
-  if(!r.ok) return null;
-  const data = await r.json();
-  if(data.value && data.value.length > 0) return data.value[0].id;
-  return null;
-}
-
-function createMinimalXlsx(){
-  return new Uint8Array(0);
 }
 
 // ═══ AUTOCOMPLETE ═══
@@ -1111,7 +1206,7 @@ async function saveTrip(){
     if(ok){
       trips[0].synced = true;
       saveTrips();
-      showToast('☁️ Synkroniseret til OneDrive', 'success');
+      showToast('☁️ Synkroniseret til SharePoint', 'success');
     }
   }
 }

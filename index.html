@@ -986,6 +986,20 @@ async function syncTripToExcel(trip){
     const { fileId, siteId } = await getSpFileId(token);
     const t = await getOrCreateSpTable(token, siteId, fileId);
 
+    // Opret workbook session
+    const sessionRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/createSession`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ persistChanges: true })
+    });
+    if(!sessionRes.ok){
+      const err = await sessionRes.text();
+      throw new Error('Session fejl ' + sessionRes.status + ': ' + err.slice(0,120));
+    }
+    const session = await sessionRes.json();
+    const sessionId = session.id;
+
+    // Tilføj række
     const rowUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${t.tableId}/rows/add`;
     const rowData = { values: [[
       trip.date, trip.odoStart, trip.odoEnd, trip.km,
@@ -994,9 +1008,20 @@ async function syncTripToExcel(trip){
     ]]};
     const r = await fetch(rowUrl, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+        'workbook-session-id': sessionId
+      },
       body: JSON.stringify(rowData)
     });
+
+    // Luk session
+    await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/closeSession`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'workbook-session-id': sessionId }
+    }).catch(() => {});
+
     if(!r.ok){
       const err = await r.text();
       throw new Error('Række fejl ' + r.status + ': ' + err.slice(0,120));
@@ -1365,17 +1390,23 @@ async function saveTrip(){
   showToast('✓ Kørsel gemt', 'success');
   renderLog();
 
-  // SharePoint sync
+  // SharePoint sync — vent til gem-toast er væk
   if(odAccount){
-    showToast('☁️ Synkroniserer...', '');
-    const ok = await syncTripToExcel(trip);
-    if(ok){
-      trips[0].synced = true;
-      saveTrips();
-      showToast('☁️ Gemt i SharePoint', 'success');
-    }
+    setTimeout(async () => {
+      showToast('☁️ Synkroniserer...', '');
+      try {
+        const ok = await syncTripToExcel(trip);
+        if(ok){
+          trips[0].synced = true;
+          saveTrips();
+          showToast('☁️ Gemt i SharePoint ✓', 'success');
+        }
+      } catch(e){
+        showToast('⚠ Sync fejl: ' + e.message, 'error');
+      }
+    }, 2800);
   } else {
-    showToast('⚠ Log ind igen for at synkronisere', 'error');
+    setTimeout(() => showToast('⚠ Ikke logget ind — kørsel kun gemt lokalt', 'error'), 2800);
   }
 }
 
@@ -1520,8 +1551,10 @@ function clearAll(){ if(confirm('Slet ALLE kørsler permanent?')){ trips=[]; sav
 
 function showToast(msg, type=''){
   const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast' + (type ? ' '+type : '') + ' show';
-  setTimeout(()=>t.className='toast', 2600);
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' '+type : '') + ' show';
+  const duration = type === 'error' ? 5000 : 2600;
+  setTimeout(()=>t.className='toast', duration);
 }
 
 // ═══ TAB SWITCHING ═══

@@ -859,13 +859,16 @@ async function testSharePoint(){
     const site = await siteRes.json();
     log('Site ID: ' + site.id);
 
-    log('Finder Excel-fil...');
-    const encodedPath = SP_PATH.split('/').map(encodeURIComponent).join('/');
-    const fileRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodedPath}`, { headers: { Authorization: 'Bearer ' + token } });
-    log('Fil HTTP: ' + fileRes.status);
-    if(!fileRes.ok){ const t=await fileRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-    const file = await fileRes.json();
-    log('Fil ID: ✓ ' + file.id.slice(0,20) + '...');
+    log('Finder Excel-fil via søgning...');
+    const searchRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/search(q='${encodeURIComponent(SP_FILE)}')`, { headers: { Authorization: 'Bearer ' + token } });
+    log('Søg HTTP: ' + searchRes.status);
+    if(!searchRes.ok){ const t=await searchRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+    const searchData = await searchRes.json();
+    const found = (searchData.value||[]).find(f => f.name === SP_FILE);
+    if(!found){ log('Fil ikke fundet i søgning. Resultater: ' + JSON.stringify((searchData.value||[]).map(f=>f.name))); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+    log('Fil fundet! Sti: ' + found.parentReference.path);
+    log('Fil ID: ✓ ' + found.id.slice(0,20) + '...');
+    const file = found;
 
     log('Finder tabel...');
     const tabRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${file.id}/workbook/tables`, { headers: { Authorization: 'Bearer ' + token } });
@@ -948,16 +951,19 @@ async function getSpFileId(token){
   }
   const site = await siteRes.json();
 
-  const encodedPath = SP_PATH.split('/').map(encodeURIComponent).join('/');
-  const driveRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodedPath}`, {
+  // Søg efter filen i hele drevet
+  const searchRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/search(q='${encodeURIComponent(SP_FILE)}')`, {
     headers: { Authorization: 'Bearer ' + token }
   });
-  if(!driveRes.ok){
-    const err = await driveRes.text();
-    throw new Error('Fil fejl ' + driveRes.status + ': ' + err.slice(0,120));
+  if(!searchRes.ok){
+    const err = await searchRes.text();
+    throw new Error('Søg fejl ' + searchRes.status + ': ' + err.slice(0,120));
   }
-  const file = await driveRes.json();
-  return { fileId: file.id, siteId: site.id };
+  const searchData = await searchRes.json();
+  const found = (searchData.value || []).find(f => f.name === SP_FILE);
+  if(!found) throw new Error('Filen "' + SP_FILE + '" blev ikke fundet i SharePoint-drevet');
+
+  return { fileId: found.id, siteId: site.id };
 }
 
 async function getOrCreateSpTable(token, siteId, fileId){

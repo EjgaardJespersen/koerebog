@@ -530,6 +530,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <div style="margin-top:10px">
         <button class="export-btn" onclick="testSharePoint()" style="font-size:13px;padding:9px">🧪 Test SharePoint-forbindelse</button>
+        <button class="export-btn" onclick="testWriteToExcel()" style="font-size:13px;padding:9px;margin-top:6px;background:var(--blue-light);color:var(--blue);border-color:var(--blue)">✏️ Test gem testrad i Excel</button>
         <div id="sp-test-result" style="display:none;margin-top:8px;font-size:12px;border-radius:8px;padding:8px 12px;line-height:1.5;white-space:pre-wrap"></div>
       </div>
     </div>
@@ -846,6 +847,61 @@ function doLogout(){
     }
   }
   showLoginScreen();
+}
+
+async function testWriteToExcel(){
+  const el = document.getElementById('sp-test-result');
+  el.style.display = 'block';
+  el.style.background = 'var(--surface2)';
+  el.style.color = 'var(--text2)';
+  el.textContent = 'Skriver testrad...';
+
+  try {
+    const token = await getGraphToken();
+    if(!token){ el.textContent = '❌ Ingen token'; el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+
+    const siteUrl = `https://graph.microsoft.com/v1.0/sites/${new URL(SP_SITE).hostname}:${new URL(SP_SITE).pathname}`;
+    const siteRes = await fetch(siteUrl, { headers: { Authorization: 'Bearer ' + token } });
+    const site = await siteRes.json();
+
+    const searchRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/search(q='${encodeURIComponent(SP_FILE)}')`, { headers: { Authorization: 'Bearer ' + token } });
+    const searchData = await searchRes.json();
+    const found = (searchData.value||[]).find(f => f.name === SP_FILE);
+    if(!found){ el.textContent = '❌ Fil ikke fundet'; el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+
+    const tabRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/tables`, { headers: { Authorization: 'Bearer ' + token } });
+    const tabData = await tabRes.json();
+    if(!tabData.value || !tabData.value.length){ el.textContent = '❌ Ingen tabel'; el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
+    const tableId = tabData.value[0].id;
+
+    // Opret session
+    const sessRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/createSession`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ persistChanges: true })
+    });
+    const sess = await sessRes.json();
+    el.textContent += '\nSession: ' + (sess.id ? '✓' : '❌ ' + JSON.stringify(sess));
+
+    // Skriv række
+    const rowRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/tables/${tableId}/rows/add`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'workbook-session-id': sess.id || '' },
+      body: JSON.stringify({ values: [['2026-05-07', 50000, 50050, 50, 'Testadresse', '', 'Testdestination', 'TEST', 'TEST-999']] })
+    });
+    const rowData = await rowRes.json();
+    el.textContent += '\nRække HTTP: ' + rowRes.status;
+    if(!rowRes.ok){ el.textContent += '\n❌ ' + JSON.stringify(rowData).slice(0,200); el.style.background='var(--red-light)'; el.style.color='var(--red)'; }
+    else { el.textContent += '\n✓ Testrad skrevet til Excel!'; el.style.background='var(--green-light)'; el.style.color='var(--green)'; }
+
+    // Luk session
+    if(sess.id) await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/closeSession`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token, 'workbook-session-id': sess.id }
+    }).catch(()=>{});
+
+  } catch(e){
+    el.textContent = '❌ Fejl: ' + e.message;
+    el.style.background='var(--red-light)'; el.style.color='var(--red)';
+  }
 }
 
 async function testSharePoint(){
@@ -1407,30 +1463,36 @@ async function saveTrip(){
   saveTrips();
   updateTotalBadge();
   renderLog();
-  setSaveBtnStatus('✓ Kørsel gemt!', '#16a34a');
   resetForm();
 
+  const btn = document.getElementById('save-btn');
+  const setBtn = (txt, color) => { if(btn){ btn.textContent = txt; btn.style.background = color; btn.disabled = true; } };
+  const resetBtn = () => { if(btn){ btn.textContent = 'Gem kørsel'; btn.style.background = ''; checkSaveReady(); } };
+
+  setBtn('✓ Kørsel gemt!', '#16a34a');
+
   // SharePoint sync
-  const syncEl = document.getElementById('sync-status');
   if(odAccount){
-    if(syncEl){ syncEl.textContent = '☁️ Synkroniserer...'; syncEl.style.color = 'var(--muted)'; }
+    setBtn('☁️ Synkroniserer...', '#2563eb');
+    let ok = false;
     try {
-      const ok = await syncTripToExcel(trip);
-      if(ok){
-        trips[0].synced = true;
-        saveTrips();
-        if(syncEl){ syncEl.textContent = '✓ Gemt i SharePoint'; syncEl.style.color = 'var(--green)'; }
-      } else {
-        if(syncEl){ syncEl.textContent = '⚠ Sync fejlede'; syncEl.style.color = 'var(--red)'; }
-      }
+      ok = await syncTripToExcel(trip);
     } catch(e){
-      if(syncEl){ syncEl.textContent = '⚠ ' + e.message; syncEl.style.color = 'var(--red)'; }
+      setBtn('⚠ ' + e.message.slice(0,30), '#dc2626');
+      setTimeout(resetBtn, 4000);
+      return;
     }
-    setTimeout(() => {
-      if(syncEl){ syncEl.textContent = '☁️ ' + (odAccount?.username || ''); syncEl.style.color = 'var(--muted)'; }
-    }, 5000);
+    if(ok){
+      trips[0].synced = true;
+      saveTrips();
+      setBtn('✓ Gemt i SharePoint', '#15803d');
+    } else {
+      setBtn('⚠ Sync fejlede — prøv igen', '#dc2626');
+    }
+    setTimeout(resetBtn, 4000);
   } else {
-    if(syncEl){ syncEl.textContent = '⚠ Ikke logget ind — kun gemt lokalt'; syncEl.style.color = 'var(--red)'; }
+    setBtn('✓ Gemt lokalt', '#16a34a');
+    setTimeout(resetBtn, 3000);
   }
 }
 

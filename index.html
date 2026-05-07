@@ -646,6 +646,7 @@ let odAccount = null;
 // ═══ SHAREPOINT CONFIG (hardkodet) ═══
 const SP_SITE    = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
 const SP_FILE    = 'Kørebog_AppVersion.xlsx';
+const SP_PATH    = 'Shared Documents/General/Kørebog/Kørebog_AppVersion.xlsx';
 const CLIENT_ID  = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
 const TENANT_ID  = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
 const LOGIN_SCOPES = ['User.Read', 'openid', 'profile', 'https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All'];
@@ -859,17 +860,12 @@ async function testSharePoint(){
     log('Site ID: ' + site.id);
 
     log('Finder Excel-fil...');
-    const paths = ['Delte dokumenter', 'Documents', 'Dokumenter', ''];
-    let fileRes = null, foundPath = '';
-    for(const p of paths){
-      const url = `https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${p ? p+'/' : ''}${encodeURIComponent(SP_FILE)}`;
-      fileRes = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-      if(fileRes.ok){ foundPath = p || '(rod)'; break; }
-    }
-    log('Fil HTTP: ' + fileRes.status + (foundPath ? ' i "' + foundPath + '"' : ''));
+    const encodedPath = SP_PATH.split('/').map(encodeURIComponent).join('/');
+    const fileRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodedPath}`, { headers: { Authorization: 'Bearer ' + token } });
+    log('Fil HTTP: ' + fileRes.status);
     if(!fileRes.ok){ const t=await fileRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
     const file = await fileRes.json();
-    log('Fil ID: ' + file.id);
+    log('Fil ID: ✓ ' + file.id.slice(0,20) + '...');
 
     log('Finder tabel...');
     const tabRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${file.id}/workbook/tables`, { headers: { Authorization: 'Bearer ' + token } });
@@ -952,28 +948,13 @@ async function getSpFileId(token){
   }
   const site = await siteRes.json();
 
-  const driveRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/Delte%20dokumenter/${encodeURIComponent(SP_FILE)}`, {
+  const encodedPath = SP_PATH.split('/').map(encodeURIComponent).join('/');
+  const driveRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodedPath}`, {
     headers: { Authorization: 'Bearer ' + token }
   });
   if(!driveRes.ok){
-    // Prøv uden mappe (rod)
-    const driveRes2 = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodeURIComponent(SP_FILE)}`, {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    if(!driveRes2.ok){
-      // Prøv Documents-mappe (engelsk)
-      const driveRes3 = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/Documents/${encodeURIComponent(SP_FILE)}`, {
-        headers: { Authorization: 'Bearer ' + token }
-      });
-      if(!driveRes3.ok){
-        const err = await driveRes3.text();
-        throw new Error('Fil fejl ' + driveRes3.status + ': ' + err.slice(0,120));
-      }
-      const file = await driveRes3.json();
-      return { fileId: file.id, siteId: site.id };
-    }
-    const file = await driveRes2.json();
-    return { fileId: file.id, siteId: site.id };
+    const err = await driveRes.text();
+    throw new Error('Fil fejl ' + driveRes.status + ': ' + err.slice(0,120));
   }
   const file = await driveRes.json();
   return { fileId: file.id, siteId: site.id };

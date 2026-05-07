@@ -865,13 +865,14 @@ function disconnectOneDrive(){
 
 function updateOdUI(){
   const connected = !!odAccount;
-  document.getElementById('od-status-text').textContent = connected
-    ? '✓ Forbundet som ' + (settings.odAccountName || 'bruger')
-    : 'Ikke forbundet';
-  document.getElementById('od-btn').textContent = connected ? 'Afbryd' : 'Forbind';
-  document.getElementById('od-btn').className = 'od-btn' + (connected ? ' disconnect' : '');
-  document.getElementById('sync-dot').className = 'sync-dot' + (connected ? ' connected' : '');
-  document.getElementById('od-help').style.display = connected ? 'none' : 'block';
+  const statusEl = document.getElementById('od-status-text');
+  const btnEl = document.getElementById('od-btn');
+  const dotEl = document.getElementById('sync-dot');
+  const helpEl = document.getElementById('od-help');
+  if(statusEl) statusEl.textContent = connected ? '✓ Forbundet som ' + (settings.odAccountName || 'bruger') : 'Ikke forbundet';
+  if(btnEl){ btnEl.textContent = connected ? 'Afbryd' : 'Forbind'; btnEl.className = 'od-btn' + (connected ? ' disconnect' : ''); }
+  if(dotEl) dotEl.className = 'sync-dot' + (connected ? ' connected' : '');
+  if(helpEl) helpEl.style.display = connected ? 'none' : 'block';
 }
 
 function saveClientId(){

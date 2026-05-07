@@ -1363,10 +1363,11 @@ function checkSaveReady(){
 
 // ═══ SAVE TRIP ═══
 async function saveTrip(){
+  const btn = document.getElementById('save-btn');
   const oStart = parseInt(document.getElementById('odo-start').value);
   const oEnd   = parseInt(document.getElementById('odo-end').value);
-  if(isNaN(oStart) && isNaN(oEnd)){ showToast('Angiv km-stand ved start eller slut', 'error'); return; }
-  if(!currentDist){ showToast('Beregn ruten først', 'error'); return; }
+  if(isNaN(oStart) && isNaN(oEnd)){ setSaveBtnStatus('⚠ Angiv km-stand', '#dc2626'); return; }
+  if(!currentDist){ setSaveBtnStatus('⚠ Beregn ruten først', '#dc2626'); return; }
   const finalStart = isNaN(oStart) ? oEnd - Math.round(currentDist) : oStart;
   const finalEnd   = isNaN(oEnd)   ? oStart + Math.round(currentDist) : oEnd;
 
@@ -1386,27 +1387,52 @@ async function saveTrip(){
   trips.unshift(trip);
   saveTrips();
   updateTotalBadge();
-  resetForm();
-  showToast('✓ Kørsel gemt', 'success');
   renderLog();
+  setSaveBtnStatus('✓ Kørsel gemt!', '#16a34a');
+  resetForm();
 
-  // SharePoint sync — vent til gem-toast er væk
+  // SharePoint sync
   if(odAccount){
-    setTimeout(async () => {
-      showToast('☁️ Synkroniserer...', '');
-      try {
-        const ok = await syncTripToExcel(trip);
-        if(ok){
-          trips[0].synced = true;
-          saveTrips();
-          showToast('☁️ Gemt i SharePoint ✓', 'success');
-        }
-      } catch(e){
-        showToast('⚠ Sync fejl: ' + e.message, 'error');
+    showSyncBanner('☁️ Synkroniserer til SharePoint...');
+    try {
+      const ok = await syncTripToExcel(trip);
+      if(ok){
+        trips[0].synced = true;
+        saveTrips();
+        showSyncBanner('✓ Gemt i SharePoint', true);
       }
-    }, 2800);
-  } else {
-    setTimeout(() => showToast('⚠ Ikke logget ind — kørsel kun gemt lokalt', 'error'), 2800);
+    } catch(e){
+      showSyncBanner('⚠ Sync fejl: ' + e.message, false, true);
+    }
+  }
+}
+
+function setSaveBtnStatus(msg, color){
+  const btn = document.getElementById('save-btn');
+  if(!btn) return;
+  btn.textContent = msg;
+  btn.style.background = color;
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = 'Gem kørsel';
+    btn.style.background = '';
+    checkSaveReady();
+  }, 3000);
+}
+
+function showSyncBanner(msg, success, error){
+  let banner = document.getElementById('sync-banner');
+  if(!banner){
+    banner = document.createElement('div');
+    banner.id = 'sync-banner';
+    banner.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top) + 80px);left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:3000;box-shadow:0 4px 20px rgba(0,0,0,0.2);white-space:nowrap;transition:opacity .3s';
+    document.body.appendChild(banner);
+  }
+  banner.textContent = msg;
+  banner.style.opacity = '1';
+  banner.style.background = success ? '#15803d' : error ? '#dc2626' : '#1f2937';
+  if(success || error){
+    setTimeout(() => { banner.style.opacity = '0'; }, 4000);
   }
 }
 

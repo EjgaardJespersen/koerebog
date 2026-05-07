@@ -979,10 +979,12 @@ async function getOrCreateSpTable(token, siteId, fileId){
 }
 
 async function syncTripToExcel(trip){
+  alert('syncTripToExcel START');
   if(!odAccount) return false;
   try {
+    alert('Henter token...');
     const token = await getGraphToken();
-    if(!token){ showToast('⚠ Kunne ikke hente adgangstoken', 'error'); return false; }
+    alert('Token: ' + (token ? token.slice(0,20) : 'NULL'));
     const { fileId, siteId } = await getSpFileId(token);
     const t = await getOrCreateSpTable(token, siteId, fileId);
 

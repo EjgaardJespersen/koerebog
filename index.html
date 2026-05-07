@@ -1388,11 +1388,15 @@ async function saveTrip(){
   };
 
   trips.unshift(trip);
+  alert('TRIN 1: trip tilføjet');
   saveTrips();
+  alert('TRIN 2: saveTrips OK');
   updateTotalBadge();
   renderLog();
+  alert('TRIN 3: renderLog OK');
   setSaveBtnStatus('✓ Kørsel gemt!', '#16a34a');
   resetForm();
+  alert('TRIN 4: resetForm OK - odAccount=' + (odAccount ? 'SAT' : 'NULL'));
 
   // SharePoint sync
   if(odAccount){

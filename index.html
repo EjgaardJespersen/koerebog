@@ -500,6 +500,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     </div>
 
     <button class="save-btn" id="save-btn" onclick="saveTrip()" disabled>Gem kørsel</button>
+    <div id="sync-status" style="text-align:center;font-size:12px;color:var(--muted);padding:4px 0;min-height:20px"></div>
 
   </div>
 
@@ -797,6 +798,8 @@ function revealApp(){
   document.getElementById('odo-end').addEventListener('input', () => updateOdoFields('end'));
   const nameEl = document.getElementById('logged-in-as');
   if(nameEl) nameEl.textContent = settings.odAccountName || odAccount?.username || '–';
+  const syncEl = document.getElementById('sync-status');
+  if(syncEl) syncEl.textContent = odAccount ? '☁️ Logget ind som ' + (odAccount.username || settings.odAccountName) : '⚠ Ikke logget ind — SharePoint sync deaktiveret';
   updateOdUI();
 }
 
@@ -1408,19 +1411,26 @@ async function saveTrip(){
   resetForm();
 
   // SharePoint sync
+  const syncEl = document.getElementById('sync-status');
   if(odAccount){
-    showSyncBanner('☁️ Synkroniserer til SharePoint...');
+    if(syncEl){ syncEl.textContent = '☁️ Synkroniserer...'; syncEl.style.color = 'var(--muted)'; }
     try {
       const ok = await syncTripToExcel(trip);
       if(ok){
         trips[0].synced = true;
         saveTrips();
-        showSyncBanner('✓ Gemt i SharePoint', true);
+        if(syncEl){ syncEl.textContent = '✓ Gemt i SharePoint'; syncEl.style.color = 'var(--green)'; }
+      } else {
+        if(syncEl){ syncEl.textContent = '⚠ Sync fejlede'; syncEl.style.color = 'var(--red)'; }
       }
     } catch(e){
-      alert('Sync exception: ' + e.message);
-      showSyncBanner('⚠ Sync fejl: ' + e.message, false, true);
+      if(syncEl){ syncEl.textContent = '⚠ ' + e.message; syncEl.style.color = 'var(--red)'; }
     }
+    setTimeout(() => {
+      if(syncEl){ syncEl.textContent = '☁️ ' + (odAccount?.username || ''); syncEl.style.color = 'var(--muted)'; }
+    }, 5000);
+  } else {
+    if(syncEl){ syncEl.textContent = '⚠ Ikke logget ind — kun gemt lokalt'; syncEl.style.color = 'var(--red)'; }
   }
 }
 

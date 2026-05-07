@@ -624,13 +624,12 @@ let odAccount = null;
 
 // ═══ INIT ═══
 (function init(){
-  // Vis login-screen mens MSAL initialiserer
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
-  document.getElementById('login-loading').style.display = 'flex';
-  document.getElementById('login-btn').style.display = 'none';
+  document.getElementById('login-loading').style.display = 'none';
+  document.getElementById('login-btn').style.display = 'flex';
 
-  initMsal(); // async — viser enten login eller app når klar
+  initMsal();
 
   const now = new Date();
   document.getElementById('top-date').textContent = now.toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'});
@@ -689,8 +688,26 @@ async function initMsal(){
 }
 
 function doLogin(){
-  if(!msalInstance){ alert('Siden er ikke klar endnu — prøv igen om et sekund'); return; }
-  msalInstance.loginRedirect({ scopes: SP_SCOPES, prompt: 'select_account' });
+  document.getElementById('login-loading').style.display = 'flex';
+  document.getElementById('login-btn').style.display = 'none';
+
+  const tryLogin = () => {
+    if(!msalInstance){
+      setTimeout(tryLogin, 200);
+      return;
+    }
+    try {
+      msalInstance.loginRedirect({
+        scopes: SP_SCOPES,
+        prompt: 'select_account'
+      });
+    } catch(e){
+      console.warn('loginRedirect fejl:', e);
+      showLoginScreen();
+      alert('Login fejlede: ' + (e.message || e));
+    }
+  };
+  tryLogin();
 }
 
 function saveLoginClientId(){} // ikke i brug

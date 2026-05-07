@@ -1363,6 +1363,7 @@ function checkSaveReady(){
 
 // ═══ SAVE TRIP ═══
 async function saveTrip(){
+  alert('DEBUG: odAccount = ' + (odAccount ? odAccount.username : 'NULL') + '\nmsalInstance = ' + (msalInstance ? 'OK' : 'NULL'));
   const btn = document.getElementById('save-btn');
   const oStart = parseInt(document.getElementById('odo-start').value);
   const oEnd   = parseInt(document.getElementById('odo-end').value);

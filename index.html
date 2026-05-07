@@ -859,8 +859,14 @@ async function testSharePoint(){
     log('Site ID: ' + site.id);
 
     log('Finder Excel-fil...');
-    const fileRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodeURIComponent(SP_FILE)}`, { headers: { Authorization: 'Bearer ' + token } });
-    log('Fil HTTP: ' + fileRes.status);
+    const paths = ['Delte dokumenter', 'Documents', 'Dokumenter', ''];
+    let fileRes = null, foundPath = '';
+    for(const p of paths){
+      const url = `https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${p ? p+'/' : ''}${encodeURIComponent(SP_FILE)}`;
+      fileRes = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      if(fileRes.ok){ foundPath = p || '(rod)'; break; }
+    }
+    log('Fil HTTP: ' + fileRes.status + (foundPath ? ' i "' + foundPath + '"' : ''));
     if(!fileRes.ok){ const t=await fileRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
     const file = await fileRes.json();
     log('Fil ID: ' + file.id);
@@ -946,12 +952,28 @@ async function getSpFileId(token){
   }
   const site = await siteRes.json();
 
-  const driveRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodeURIComponent(SP_FILE)}`, {
+  const driveRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/Delte%20dokumenter/${encodeURIComponent(SP_FILE)}`, {
     headers: { Authorization: 'Bearer ' + token }
   });
   if(!driveRes.ok){
-    const err = await driveRes.text();
-    throw new Error('Fil fejl ' + driveRes.status + ': ' + err.slice(0,120));
+    // Prøv uden mappe (rod)
+    const driveRes2 = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/${encodeURIComponent(SP_FILE)}`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if(!driveRes2.ok){
+      // Prøv Documents-mappe (engelsk)
+      const driveRes3 = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root:/Documents/${encodeURIComponent(SP_FILE)}`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if(!driveRes3.ok){
+        const err = await driveRes3.text();
+        throw new Error('Fil fejl ' + driveRes3.status + ': ' + err.slice(0,120));
+      }
+      const file = await driveRes3.json();
+      return { fileId: file.id, siteId: site.id };
+    }
+    const file = await driveRes2.json();
+    return { fileId: file.id, siteId: site.id };
   }
   const file = await driveRes.json();
   return { fileId: file.id, siteId: site.id };

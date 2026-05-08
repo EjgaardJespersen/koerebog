@@ -964,6 +964,11 @@ async function revealApp(){
   updateTotalBadge();
   updateFavCountLabel();
 
+  // Hent kørsler fra Excel ved opstart så loggen er synkroniseret
+  loadTripsFromExcel().then(ok => {
+    if(ok) updateTotalBadge();
+  });
+
   ['from','via','to'].forEach(id => setupAutocomplete(id));
   ['from','to','odo-start','odo-end'].forEach(id => {
     document.getElementById(id).addEventListener('input', checkSaveReady);
@@ -1785,11 +1790,7 @@ async function saveTrip(){
     if(btn){ btn.textContent = 'Gem kørsel'; btn.style.background = ''; checkSaveReady(); }
   };
 
-  // Vis grøn "Kørsel gemt" i 2 sekunder
-  setBtn('✓ Kørsel gemt', '#16a34a');
-  await new Promise(r => setTimeout(r, 2000));
-
-  // SharePoint sync
+  // SharePoint sync (hvis logget ind og konfigureret)
   if(odAccount && SP_CONFIG){
     setBtn('☁️ Synkroniserer...', '#2563eb');
     let ok = false;
@@ -1804,8 +1805,8 @@ async function saveTrip(){
       trips[0].synced = true;
       saveTrips();
       renderLog();
-      setBtn('☁️ Gemt i ' + (SP_CONFIG.mode === 'onedrive' ? 'OneDrive' : 'SharePoint'), '#15803d');
-      setTimeout(resetBtn, 2500);
+      setBtn('✓ Kørsel gemt', '#16a34a');
+      setTimeout(resetBtn, 2000);
     } else {
       setBtn('⚠ Sync fejlede — prøv igen', '#dc2626');
       setTimeout(resetBtn, 5000);
@@ -1985,14 +1986,103 @@ function showToast(msg, type=''){
 }
 
 // ═══ TAB SWITCHING ═══
+async function loadTripsFromExcel(){
+  if(!odAccount || !SP_CONFIG) return false;
+  try {
+    const token = await getGraphToken();
+    if(!token) return false;
+    await spFindFile(token);
+    const base = buildGraphBaseUrl();
+    const r = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if(!r.ok) return false;
+    const data = await r.json();
+
+    // Konverter Excel-rækker til trip-objekter
+    // Kolonnerækkefølge: Dato, Km-tæller start, Km-tæller slut, Antal km,
+    //                    Startadr., Via, Slutadr., Formål, ID
+    const fromExcel = (data.value || []).map(row => {
+      const v = row.values[0];
+      return {
+        id: parseInt(v[8]) || Date.now(),
+        date: String(v[0] || ''),
+        odoStart: parseInt(v[1]) || 0,
+        odoEnd: parseInt(v[2]) || 0,
+        km: parseFloat(v[3]) || 0,
+        from: String(v[4] || ''),
+        via: String(v[5] || ''),
+        to: String(v[6] || ''),
+        purpose: String(v[7] || ''),
+        synced: true
+      };
+    }).filter(t => t.date && t.from && t.to);
+
+    // Bevarer lokale kørsler der endnu ikke er synkroniseret (fx gemt offline)
+    const unsyncedLocal = trips.filter(t => !t.synced);
+
+    // Forsøg at uploade unsyncede kørsler nu hvor vi er online
+    for(const t of unsyncedLocal){
+      try {
+        await syncTripToExcel(t);
+        t.synced = true;
+        fromExcel.push(t);
+      } catch(e){
+        console.warn('Kunne ikke sync unsync kørsel:', e);
+        // Behold den lokalt så den prøves igen senere
+        fromExcel.push(t);
+      }
+    }
+
+    // Sortér med nyeste først
+    fromExcel.sort((a, b) => {
+      if(b.date !== a.date) return b.date.localeCompare(a.date);
+      return b.id - a.id;
+    });
+
+    trips = fromExcel;
+    saveTrips();
+    updateTotalBadge();
+    return true;
+  } catch(e){
+    console.warn('loadTripsFromExcel:', e);
+    return false;
+  }
+}
+
 function switchTab(name){
   ['new','log','stats','settings'].forEach(n=>{
     document.getElementById('view-'+n).classList.toggle('active', n===name);
     document.getElementById('nav-'+n).classList.toggle('active', n===name);
   });
-  if(name==='log') renderLog();
-  if(name==='stats') renderStats();
+  if(name==='log'){
+    renderLog();
+    showLogSyncIndicator(true);
+    loadTripsFromExcel().then(ok => { showLogSyncIndicator(false, ok); if(ok) renderLog(); });
+  }
+  if(name==='stats'){
+    renderStats();
+    loadTripsFromExcel().then(ok => { if(ok) renderStats(); });
+  }
   if(name==='settings') updateOdUI();
+}
+
+function showLogSyncIndicator(loading, success){
+  const c = document.getElementById('log-container');
+  if(!c) return;
+  let ind = document.getElementById('log-sync-indicator');
+  if(loading){
+    if(!ind){
+      ind = document.createElement('div');
+      ind.id = 'log-sync-indicator';
+      ind.style.cssText = 'text-align:center;font-size:11px;color:var(--muted);padding:8px 0;display:flex;align-items:center;justify-content:center;gap:6px';
+      ind.innerHTML = '<span class="spinner" style="width:11px;height:11px;border-width:2px"></span> Henter fra Excel...';
+      c.insertBefore(ind, c.firstChild);
+    }
+  } else if(ind){
+    if(success){ ind.remove(); }
+    else { ind.innerHTML = '⚠ Kunne ikke hente fra Excel — viser lokale data'; ind.style.color = 'var(--red)'; setTimeout(() => ind.remove(), 3000); }
+  }
 }
 </script>
 </body>

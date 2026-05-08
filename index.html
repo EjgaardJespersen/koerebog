@@ -780,11 +780,49 @@ const SP_SCOPES    = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https:
 
 // SharePoint (vælges af brugeren ved første brug)
 let SP_CONFIG = JSON.parse(localStorage.getItem('kb_sp_config') || 'null');
+const CONFIG_FILE_PATH = 'Apps/Kørebog/koerebog_config.json'; // gemt i brugerens OneDrive Apps-mappe
+
 function getSpSite(){ return SP_CONFIG?.siteUrl || ''; }
 function getSpFileName(){ return SP_CONFIG?.fileName || ''; }
 function getSpDriveItemId(){ return SP_CONFIG?.driveItemId || ''; }
 function getSpSiteId(){ return SP_CONFIG?.siteId || ''; }
-function saveSpConfig(){ localStorage.setItem('kb_sp_config', JSON.stringify(SP_CONFIG)); }
+
+function saveSpConfig(){
+  localStorage.setItem('kb_sp_config', JSON.stringify(SP_CONFIG));
+  // Skriv også til OneDrive så det synker på tværs af enheder
+  saveConfigToCloud().catch(e => console.warn('Cloud config save fejl:', e));
+}
+
+function buildConfigUrl(suffix){
+  const encoded = CONFIG_FILE_PATH.split('/').map(encodeURIComponent).join('/');
+  return `https://graph.microsoft.com/v1.0/me/drive/root:/${encoded}${suffix || ''}`;
+}
+
+async function saveConfigToCloud(){
+  if(!odAccount || !SP_CONFIG) return;
+  try {
+    const token = await getGraphToken();
+    if(!token) return;
+    // PUT opretter automatisk mappen hvis den ikke findes
+    await fetch(buildConfigUrl(':/content'), {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(SP_CONFIG)
+    });
+  } catch(e){ console.warn('saveConfigToCloud:', e); }
+}
+
+async function loadConfigFromCloud(){
+  if(!odAccount) return null;
+  try {
+    const token = await getGraphToken();
+    if(!token) return null;
+    const r = await fetch(buildConfigUrl(':/content'), { headers: { Authorization: 'Bearer ' + token } });
+    if(!r.ok) return null;
+    const cfg = await r.json();
+    return cfg;
+  } catch(e){ console.warn('loadConfigFromCloud:', e); return null; }
+}
 
 // ═══ INIT ═══
 (function init(){
@@ -900,10 +938,19 @@ function doLogout(){
   showLoginScreen();
 }
 
-function revealApp(){
+async function revealApp(){
   document.getElementById('login-screen').style.display = 'none';
 
-  // Hvis SharePoint endnu ikke er konfigureret, vis setup-skærm
+  // Hvis ingen lokal config, prøv at hente fra cloud
+  if(!SP_CONFIG){
+    const cloudCfg = await loadConfigFromCloud();
+    if(cloudCfg){
+      SP_CONFIG = cloudCfg;
+      localStorage.setItem('kb_sp_config', JSON.stringify(SP_CONFIG));
+    }
+  }
+
+  // Hvis stadig ingen config, vis setup
   if(!SP_CONFIG){
     showSetupScreen();
     return;
@@ -1135,8 +1182,17 @@ function downloadExcelTemplate(){
   document.body.removeChild(a);
 }
 
-function resetSetup(){
-  if(!confirm('Skift Excel-fil? Dine lokale data bevares.')) return;
+async function resetSetup(){
+  if(!confirm('Skift Excel-fil? Dine lokale data bevares.\n\nKonfigurationen ryddes også fra OneDrive, så det skal opsættes igen på alle dine enheder.')) return;
+  // Slet config fra cloud
+  if(odAccount){
+    try {
+      const token = await getGraphToken();
+      if(token){
+        await fetch(buildConfigUrl(''), { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      }
+    } catch(e){ console.warn('Slet cloud config:', e); }
+  }
   SP_CONFIG = null;
   localStorage.removeItem('kb_sp_config');
   _spFileCache = null;
@@ -1827,7 +1883,8 @@ function renderLog(){
 
 async function deleteTrip(id){
   const trip = trips.find(t => t.id === id);
-  const syncedMsg = (trip && trip.synced && odAccount) ? '\n\nKørslen slettes også fra dit Excel-ark.' : '';
+  const syncedMsg = (trip && trip.synced && odAccount && SP_CONFIG)
+    ? '\n\nKørslen slettes også fra dit Excel-ark.' : '';
   if(!confirm('Slet denne kørsel?' + syncedMsg)) return;
 
   // Visuel feedback — dim kortet mens vi sletter
@@ -1835,9 +1892,19 @@ async function deleteTrip(id){
   if(card){ card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
 
   // Slet fra Excel hvis synkroniseret
-  if(trip && trip.synced && odAccount && settings.excelPath){
-    const ok = await deleteTripFromExcel(id);
-    showToast(ok ? '☁️ Slettet fra Excel' : '⚠ Kunne ikke slette fra Excel — slet manuelt', ok ? 'success' : 'error');
+  if(trip && trip.synced && odAccount && SP_CONFIG){
+    try {
+      const ok = await deleteTripFromExcel(id);
+      if(!ok){
+        if(card){ card.style.opacity = '1'; card.style.pointerEvents = ''; }
+        alert('⚠ Kunne ikke slette fra Excel — kørslen blev ikke slettet.\n\nTjek at Excel-filen stadig findes og at du er logget ind.');
+        return;
+      }
+    } catch(e){
+      if(card){ card.style.opacity = '1'; card.style.pointerEvents = ''; }
+      alert('⚠ Sletning fejlede: ' + e.message);
+      return;
+    }
   }
 
   trips = trips.filter(t => t.id !== id);

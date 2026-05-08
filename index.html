@@ -284,6 +284,71 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .btn-primary-sm:active{opacity:0.85}
 .empty-favs{text-align:center;padding:24px;color:var(--muted);font-size:13px}
 
+/* ═══ SETUP SCREEN ═══ */
+.setup-screen{
+  position:fixed;inset:0;
+  background:var(--bg);
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+  z-index:9998;padding:24px;
+  padding-top:calc(var(--sat) + 24px);
+  overflow-y:auto;
+}
+.setup-screen.show{display:flex}
+.setup-card{
+  background:var(--surface);
+  border-radius:24px;
+  box-shadow:0 4px 40px rgba(0,0,0,0.1);
+  padding:28px 24px;
+  width:100%;max-width:380px;
+}
+.setup-icon{
+  width:56px;height:56px;border-radius:14px;
+  background:linear-gradient(145deg,#0078d4,#005fa3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;margin:0 auto 16px;
+  box-shadow:0 4px 16px rgba(0,120,212,0.3);
+}
+.setup-title{font-size:20px;font-weight:800;color:var(--text);text-align:center;margin-bottom:6px}
+.setup-sub{font-size:13px;color:var(--muted);text-align:center;line-height:1.5;margin-bottom:22px}
+.setup-step{margin-bottom:14px}
+.setup-step-label{font-size:11px;font-weight:700;color:var(--blue);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.setup-step-num{background:var(--blue);color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.setup-list{display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto}
+.setup-item{
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  padding:10px 14px;
+  cursor:pointer;
+  transition:border-color .15s,background .15s;
+  display:flex;align-items:center;gap:10px;
+}
+.setup-item:active,.setup-item.selected{border-color:var(--blue);background:var(--blue-light)}
+.setup-item-icon{font-size:18px;flex-shrink:0}
+.setup-item-text{flex:1;min-width:0}
+.setup-item-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.setup-item-sub{font-size:11px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.setup-actions{display:flex;gap:8px;margin-top:14px}
+.setup-loading{text-align:center;padding:24px 0;color:var(--muted);font-size:13px}
+.setup-empty{text-align:center;padding:20px 0;color:var(--muted);font-size:13px;line-height:1.5}
+.setup-search-input{
+  width:100%;
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  padding:9px 12px;
+  font-family:'Outfit',sans-serif;
+  font-size:13px;
+  outline:none;
+  margin-bottom:8px;
+  -webkit-appearance:none;
+  color:var(--text);
+}
+.setup-search-input:focus{border-color:var(--blue);background:#fff}
+.setup-help{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.5;background:var(--surface2);border-radius:10px;padding:10px 12px}
+.setup-error{font-size:12px;color:var(--red);background:var(--red-light);border-radius:8px;padding:8px 12px;margin-top:10px}
+
 /* ═══ LOGIN SCREEN ═══ */
 .login-screen{
   position:fixed;inset:0;
@@ -386,6 +451,67 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     </div>
     <div class="login-note">Kun brugere med en kasperejgaard.dk Microsoft-konto kan logge ind</div>
     <div id="login-error" style="display:none;margin-top:12px;font-size:12px;color:var(--red);background:var(--red-light);border-radius:8px;padding:8px 12px;text-align:left;line-height:1.4"></div>
+  </div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen" class="setup-screen">
+  <div class="setup-card">
+    <div class="setup-icon">📊</div>
+    <div class="setup-title">Forbind Excel-fil</div>
+    <div class="setup-sub">Vælg hvor din kørebog skal gemmes</div>
+
+    <!-- Step 0: Vælg storage -->
+    <div class="setup-step" id="setup-step-storage">
+      <div class="setup-step-label"><span class="setup-step-num">1</span> Vælg lagring</div>
+      <div class="setup-list">
+        <div class="setup-item" onclick="pickStorage('sharepoint')">
+          <div class="setup-item-icon">🌐</div>
+          <div class="setup-item-text">
+            <div class="setup-item-name">SharePoint</div>
+            <div class="setup-item-sub">Til delte teamfiler i en M365-tenant</div>
+          </div>
+        </div>
+        <div class="setup-item" onclick="pickStorage('onedrive')">
+          <div class="setup-item-icon">☁️</div>
+          <div class="setup-item-text">
+            <div class="setup-item-name">OneDrive</div>
+            <div class="setup-item-sub">Til personlige filer i din OneDrive</div>
+          </div>
+        </div>
+      </div>
+      <div class="setup-help">
+        <strong>📥 Har du ikke en kørebog-fil?</strong><br>
+        Download skabelonen, gem den i SharePoint eller OneDrive, og vælg den derefter her.<br>
+        <button onclick="downloadExcelTemplate()" style="margin-top:8px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none">⬇️ Download Excel-skabelon</button>
+      </div>
+    </div>
+
+    <!-- Step 1: Vælg site (kun SharePoint) -->
+    <div class="setup-step" id="setup-step-site" style="display:none">
+      <div class="setup-step-label"><span class="setup-step-num">2</span> Vælg SharePoint-site</div>
+      <button onclick="loadStorageOptions()" style="background:none;border:none;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;padding:2px 0;margin-bottom:8px;font-weight:600">← Skift lagring</button>
+      <input class="setup-search-input" id="site-search" placeholder="Søg efter site..." autocomplete="off" oninput="renderSites(this.value)">
+      <div class="setup-list" id="site-list">
+        <div class="setup-loading"><span class="spinner"></span> Henter dine sites...</div>
+      </div>
+    </div>
+
+    <!-- Step 2: Vælg fil -->
+    <div class="setup-step" id="setup-step-file" style="display:none">
+      <div class="setup-step-label"><span class="setup-step-num">3</span> Vælg Excel-fil</div>
+      <button onclick="setupBackToSites()" style="background:none;border:none;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;padding:2px 0;margin-bottom:8px;font-weight:600">← Tilbage</button>
+      <input class="setup-search-input" id="file-search" placeholder="Søg efter .xlsx fil..." autocomplete="off" oninput="renderFiles(this.value)">
+      <div class="setup-list" id="file-list">
+        <div class="setup-loading"><span class="spinner"></span> Henter Excel-filer...</div>
+      </div>
+    </div>
+
+    <div id="setup-error" style="display:none" class="setup-error"></div>
+
+    <div class="setup-actions">
+      <button class="btn-secondary" onclick="doLogout()" style="flex:1">Log ud</button>
+    </div>
   </div>
 </div>
 
@@ -518,19 +644,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   <!-- ═══ VIEW: INDSTILLINGER ═══ -->
   <div class="view" id="view-settings">
 
-    <!-- SharePoint -->
+    <!-- Forbindelse -->
     <div class="onedrive-card">
       <div class="od-row">
-        <div class="od-logo">📊</div>
+        <div class="od-logo" id="od-logo">📊</div>
         <div class="od-info">
-          <div class="od-title">SharePoint / Excel</div>
-          <div class="od-status" id="od-status-text">Ikke forbundet</div>
+          <div class="od-title" id="od-title-text">Excel-fil</div>
+          <div class="od-status" id="od-status-text">Ikke konfigureret</div>
         </div>
-        <button class="od-btn" id="od-btn" onclick="toggleOneDrive()">Forbind</button>
+        <button class="od-btn" id="od-btn" onclick="resetSetup()">Skift</button>
       </div>
       <div style="margin-top:10px">
-        <button class="export-btn" onclick="testSharePoint()" style="font-size:13px;padding:9px">🧪 Test SharePoint-forbindelse</button>
-        <button class="export-btn" onclick="testWriteToExcel()" style="font-size:13px;padding:9px;margin-top:6px;background:var(--blue-light);color:var(--blue);border-color:var(--blue)">✏️ Test gem testrad i Excel</button>
+        <button class="export-btn" onclick="testWriteToExcel()" style="font-size:13px;padding:9px;background:var(--blue-light);color:var(--blue);border-color:var(--blue)">✏️ Test gem testrad i Excel</button>
         <div id="sp-test-result" style="display:none;margin-top:8px;font-size:12px;border-radius:8px;padding:8px 12px;line-height:1.5;white-space:pre-wrap"></div>
       </div>
     </div>
@@ -646,14 +771,20 @@ let msalInstance = null;
 let odAccount = null;
 let odAccessToken = null;
 
-// ═══ SHAREPOINT CONFIG (hardkodet) ═══
-const SP_SITE    = 'https://kasperejgaard.sharepoint.com/sites/KasperEjgaard';
-const SP_FILE    = 'Kørebog_AppVersion.xlsx';
-const SP_PATH    = 'Shared Documents/General/Kørebog/Kørebog_AppVersion.xlsx';
+// ═══ KONFIGURATION ═══
+// Login (hardkodet — knyttet til Azure-app i den specifikke tenant)
 const CLIENT_ID  = '1dcc0188-de1a-4b51-a15d-4635be9a52b1';
-const TENANT_ID  = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba';
+const TENANT_ID  = 'c60781ca-12bc-4ee3-a8e8-69462d4da1ba'; // kasperejgaard.dk tenant
 const LOGIN_SCOPES = ['User.Read', 'openid', 'profile', 'https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All'];
 const SP_SCOPES    = ['https://graph.microsoft.com/Files.ReadWrite.All', 'https://graph.microsoft.com/Sites.ReadWrite.All'];
+
+// SharePoint (vælges af brugeren ved første brug)
+let SP_CONFIG = JSON.parse(localStorage.getItem('kb_sp_config') || 'null');
+function getSpSite(){ return SP_CONFIG?.siteUrl || ''; }
+function getSpFileName(){ return SP_CONFIG?.fileName || ''; }
+function getSpDriveItemId(){ return SP_CONFIG?.driveItemId || ''; }
+function getSpSiteId(){ return SP_CONFIG?.siteId || ''; }
+function saveSpConfig(){ localStorage.setItem('kb_sp_config', JSON.stringify(SP_CONFIG)); }
 
 // ═══ INIT ═══
 (function init(){
@@ -771,6 +902,14 @@ function doLogout(){
 
 function revealApp(){
   document.getElementById('login-screen').style.display = 'none';
+
+  // Hvis SharePoint endnu ikke er konfigureret, vis setup-skærm
+  if(!SP_CONFIG){
+    showSetupScreen();
+    return;
+  }
+
+  document.getElementById('setup-screen').classList.remove('show');
   document.getElementById('app').style.display = 'flex';
   document.getElementById('app').style.flexDirection = 'column';
 
@@ -807,9 +946,206 @@ function revealApp(){
 function showLoginScreen(){
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
+  document.getElementById('setup-screen').classList.remove('show');
   document.getElementById('login-loading').style.display = 'none';
   document.getElementById('login-btn').style.display = 'flex';
 }
+
+// ═══════════════════════════════════════════════
+// ═══ SETUP SCREEN ═══
+// ═══════════════════════════════════════════════
+let _setupSites = [];
+let _setupFiles = [];
+let _setupSelectedSite = null;
+let _setupMode = 'sharepoint'; // 'sharepoint' eller 'onedrive'
+
+async function showSetupScreen(){
+  document.getElementById('setup-screen').classList.add('show');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'none';
+  await loadStorageOptions();
+}
+
+async function loadStorageOptions(){
+  // Vis valg mellem SharePoint og OneDrive
+  document.getElementById('setup-step-storage').style.display = 'block';
+  document.getElementById('setup-step-site').style.display = 'none';
+  document.getElementById('setup-step-file').style.display = 'none';
+}
+
+async function pickStorage(mode){
+  _setupMode = mode;
+  document.getElementById('setup-step-storage').style.display = 'none';
+
+  if(mode === 'onedrive'){
+    // OneDrive: spring site-valg over, gå direkte til fil-valg
+    _setupSelectedSite = { id: 'me', name: 'Min OneDrive' };
+    document.getElementById('setup-step-file').style.display = 'block';
+    document.getElementById('setup-step-site').style.display = 'none';
+    await loadFiles();
+  } else {
+    // SharePoint: vis site-valg
+    document.getElementById('setup-step-site').style.display = 'block';
+    await loadSites();
+  }
+}
+
+async function loadSites(){
+  const list = document.getElementById('site-list');
+  list.innerHTML = '<div class="setup-loading"><span class="spinner"></span> Henter dine sites...</div>';
+  try {
+    const token = await getGraphToken();
+    if(!token) throw new Error('Ingen token');
+    const r = await fetch('https://graph.microsoft.com/v1.0/sites?search=*', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if(!r.ok) throw new Error('Kunne ikke hente sites');
+    const data = await r.json();
+    _setupSites = data.value || [];
+    renderSites('');
+  } catch(e){
+    list.innerHTML = '<div class="setup-error">⚠ ' + e.message + '</div>';
+  }
+}
+
+function renderSites(filter){
+  const list = document.getElementById('site-list');
+  const filtered = _setupSites.filter(s =>
+    (s.displayName || s.name || '').toLowerCase().includes(filter.toLowerCase())
+  );
+  if(filtered.length === 0){
+    list.innerHTML = '<div class="setup-empty">Ingen sites fundet</div>';
+    return;
+  }
+  list.innerHTML = filtered.slice(0, 20).map(s => `
+    <div class="setup-item" onclick="pickSite('${s.id}')">
+      <div class="setup-item-icon">🌐</div>
+      <div class="setup-item-text">
+        <div class="setup-item-name">${escHtml(s.displayName || s.name)}</div>
+        <div class="setup-item-sub">${escHtml(s.webUrl || '')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function pickSite(siteId){
+  _setupSelectedSite = _setupSites.find(s => s.id === siteId);
+  document.getElementById('setup-step-site').style.display = 'none';
+  document.getElementById('setup-step-file').style.display = 'block';
+  loadFiles();
+}
+
+function setupBackToSites(){
+  document.getElementById('setup-step-file').style.display = 'none';
+  if(_setupMode === 'onedrive'){
+    loadStorageOptions();
+  } else {
+    document.getElementById('setup-step-site').style.display = 'block';
+  }
+}
+
+async function loadFiles(){
+  const list = document.getElementById('file-list');
+  list.innerHTML = '<div class="setup-loading"><span class="spinner"></span> Henter Excel-filer...</div>';
+  try {
+    const token = await getGraphToken();
+    if(!token) throw new Error('Ingen token');
+
+    let url;
+    if(_setupMode === 'onedrive'){
+      // Søg i hele OneDrive
+      url = `https://graph.microsoft.com/v1.0/me/drive/root/search(q='.xlsx')`;
+    } else {
+      url = `https://graph.microsoft.com/v1.0/sites/${_setupSelectedSite.id}/drive/root/search(q='.xlsx')`;
+    }
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    if(!r.ok) throw new Error('Kunne ikke hente filer');
+    const data = await r.json();
+    _setupFiles = (data.value || []).filter(f => f.name && f.name.toLowerCase().endsWith('.xlsx'));
+    renderFiles('');
+  } catch(e){
+    list.innerHTML = '<div class="setup-error">⚠ ' + e.message + '</div>';
+  }
+}
+
+function renderFiles(filter){
+  const list = document.getElementById('file-list');
+  const filtered = _setupFiles.filter(f =>
+    f.name.toLowerCase().includes(filter.toLowerCase())
+  );
+  if(filtered.length === 0){
+    list.innerHTML = '<div class="setup-empty">Ingen .xlsx filer fundet.<br>Upload en Excel-skabelon først.</div>';
+    return;
+  }
+  list.innerHTML = filtered.slice(0, 30).map(f => `
+    <div class="setup-item" onclick="pickFile('${f.id}','${escHtml(f.name)}')">
+      <div class="setup-item-icon">📊</div>
+      <div class="setup-item-text">
+        <div class="setup-item-name">${escHtml(f.name)}</div>
+        <div class="setup-item-sub">${escHtml(f.parentReference?.path?.replace('/drive/root:','') || 'OneDrive')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function pickFile(fileId, fileName){
+  // Verificer at filen har en tabel med de rigtige kolonner
+  const errEl = document.getElementById('setup-error');
+  errEl.style.display = 'none';
+  try {
+    const token = await getGraphToken();
+    let tableUrl;
+    if(_setupMode === 'onedrive'){
+      tableUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/workbook/tables`;
+    } else {
+      tableUrl = `https://graph.microsoft.com/v1.0/sites/${_setupSelectedSite.id}/drive/items/${fileId}/workbook/tables`;
+    }
+    const r = await fetch(tableUrl, { headers: { Authorization: 'Bearer ' + token } });
+    if(!r.ok) throw new Error('Kunne ikke læse Excel-filen');
+    const data = await r.json();
+    if(!data.value || data.value.length === 0){
+      throw new Error('Filen indeholder ingen tabel. Download skabelonen og brug den i stedet.');
+    }
+
+    // Gem konfiguration
+    SP_CONFIG = {
+      mode: _setupMode,
+      siteId: _setupMode === 'sharepoint' ? _setupSelectedSite.id : null,
+      siteName: _setupMode === 'sharepoint' ? _setupSelectedSite.displayName || _setupSelectedSite.name : 'OneDrive',
+      fileId: fileId,
+      fileName: fileName,
+      tableId: data.value[0].id,
+      tableName: data.value[0].name
+    };
+    saveSpConfig();
+    _spFileCache = null; // ryd cache så ny konfig bruges
+    revealApp();
+  } catch(e){
+    errEl.textContent = '⚠ ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function downloadExcelTemplate(){
+  // Generer en simpel Excel-fil med tabel ved hjælp af en CSV der konverteres
+  // Da vi ikke kan generere ægte XLSX i browseren uden bibliotek,
+  // henter vi en pre-fabrikeret skabelon fra GitHub raw
+  const a = document.createElement('a');
+  a.href = 'https://bil.kasperejgaard.dk/Kørebog_skabelon.xlsx';
+  a.download = 'Kørebog_skabelon.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function resetSetup(){
+  if(!confirm('Skift Excel-fil? Dine lokale data bevares.')) return;
+  SP_CONFIG = null;
+  localStorage.removeItem('kb_sp_config');
+  _spFileCache = null;
+  showSetupScreen();
+}
+
 function showLoginError(msg){
   showLoginScreen();
   const el = document.getElementById('login-error');
@@ -854,10 +1190,11 @@ async function testWriteToExcel(){
   el.style.display = 'block';
   el.style.background = 'var(--surface2)';
   el.style.color = 'var(--text2)';
-  el.textContent = 'Skriver testrad til Excel...';
+  el.textContent = 'Skriver testrad...';
 
   try {
-    _spFileCache = null; // tving fri søgning
+    if(!SP_CONFIG){ throw new Error('App ikke konfigureret — vælg en Excel-fil først'); }
+    _spFileCache = null;
     const testTrip = {
       id: 'TEST-' + Date.now(),
       date: new Date().toISOString().split('T')[0],
@@ -867,10 +1204,10 @@ async function testWriteToExcel(){
       km: 50,
       odoStart: 50000,
       odoEnd: 50050,
-      purpose: 'TEST RÆKKE — kan slettes'
+      purpose: 'TEST RÆKKE — kan slettes manuelt'
     };
     await syncTripToExcel(testTrip);
-    el.textContent = '✓ Testrad skrevet til Excel!\nÅbn dit ark i SharePoint og slet den manuelt.';
+    el.textContent = '✓ Testrad skrevet til Excel!\nÅbn dit ark og slet rækken manuelt.';
     el.style.background = 'var(--green-light)';
     el.style.color = 'var(--green)';
   } catch(e){
@@ -880,61 +1217,7 @@ async function testWriteToExcel(){
   }
 }
 
-async function testSharePoint(){
-  const el = document.getElementById('sp-test-result');
-  el.style.display = 'block';
-  el.style.background = 'var(--surface2)';
-  el.style.color = 'var(--text2)';
-  el.textContent = 'Tester...';
-
-  const log = (msg) => { el.textContent += '\n' + msg; };
-
-  try {
-    log('odAccount: ' + (odAccount ? odAccount.username : 'NULL ❌'));
-    log('odAccessToken: ' + (odAccessToken ? '✓ cachet' : 'NULL — henter ny...'));
-    if(!odAccount){ el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-
-    log('Henter token...');
-    const token = await getGraphToken();
-    log('Token: ' + (token ? '✓ OK (' + token.slice(0,20) + '...)' : 'NULL ❌'));
-    if(!token){ el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-
-    log('Finder SharePoint site...');
-    const siteUrl = `https://graph.microsoft.com/v1.0/sites/${new URL(SP_SITE).hostname}:${new URL(SP_SITE).pathname}`;
-    const siteRes = await fetch(siteUrl, { headers: { Authorization: 'Bearer ' + token } });
-    log('Site HTTP: ' + siteRes.status);
-    if(!siteRes.ok){ const t=await siteRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-    const site = await siteRes.json();
-    log('Site ID: ' + site.id);
-
-    log('Finder Excel-fil via søgning...');
-    const searchRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/search(q='${encodeURIComponent(SP_FILE)}')`, { headers: { Authorization: 'Bearer ' + token } });
-    log('Søg HTTP: ' + searchRes.status);
-    if(!searchRes.ok){ const t=await searchRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-    const searchData = await searchRes.json();
-    const found = (searchData.value||[]).find(f => f.name === SP_FILE);
-    if(!found){ log('Fil ikke fundet i søgning. Resultater: ' + JSON.stringify((searchData.value||[]).map(f=>f.name))); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-    log('Fil fundet! Sti: ' + found.parentReference.path);
-    log('Fil ID: ✓ ' + found.id.slice(0,20) + '...');
-    const file = found;
-
-    log('Finder tabel...');
-    const tabRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${file.id}/workbook/tables`, { headers: { Authorization: 'Bearer ' + token } });
-    log('Tabel HTTP: ' + tabRes.status);
-    if(!tabRes.ok){ const t=await tabRes.text(); log('Fejl: '+t.slice(0,200)); el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-    const tabs = await tabRes.json();
-    log('Tabeller: ' + JSON.stringify((tabs.value||[]).map(t=>t.name)));
-
-    el.textContent = el.textContent.trim();
-    el.style.background = 'var(--green-light)';
-    el.style.color = 'var(--green)';
-    log('\n✓ Alt OK!');
-  } catch(e){
-    log('EXCEPTION: ' + e.message);
-    el.style.background = 'var(--red-light)';
-    el.style.color = 'var(--red)';
-  }
-}
+async function testSharePoint(){} // ikke i brug
 
 function toggleOneDrive(){
   if(odAccount){ disconnectOneDrive(); return; }
@@ -955,14 +1238,26 @@ function disconnectOneDrive(){
 
 function updateOdUI(){
   const connected = !!odAccount;
+  const configured = !!SP_CONFIG;
   const statusEl = document.getElementById('od-status-text');
+  const titleEl = document.getElementById('od-title-text');
+  const logoEl = document.getElementById('od-logo');
   const btnEl = document.getElementById('od-btn');
   const dotEl = document.getElementById('sync-dot');
   const helpEl = document.getElementById('od-help');
-  if(statusEl) statusEl.textContent = connected ? '✓ Forbundet som ' + (settings.odAccountName || 'bruger') : 'Ikke forbundet';
-  if(btnEl){ btnEl.textContent = connected ? 'Afbryd' : 'Forbind'; btnEl.className = 'od-btn' + (connected ? ' disconnect' : ''); }
-  if(dotEl) dotEl.className = 'sync-dot' + (connected ? ' connected' : '');
-  if(helpEl) helpEl.style.display = connected ? 'none' : 'block';
+
+  if(titleEl) titleEl.textContent = configured ? (SP_CONFIG.mode === 'onedrive' ? 'OneDrive / Excel' : 'SharePoint / Excel') : 'Excel-fil';
+  if(logoEl) logoEl.textContent = configured ? (SP_CONFIG.mode === 'onedrive' ? '☁️' : '🌐') : '📊';
+  if(statusEl){
+    if(!configured){
+      statusEl.textContent = 'Ikke konfigureret';
+    } else {
+      statusEl.textContent = '✓ ' + SP_CONFIG.fileName + ' (' + (SP_CONFIG.siteName || 'OneDrive') + ')';
+    }
+  }
+  if(btnEl){ btnEl.textContent = configured ? 'Skift' : 'Vælg fil'; }
+  if(dotEl) dotEl.className = 'sync-dot' + (connected && configured ? ' connected' : '');
+  if(helpEl) helpEl.style.display = 'none';
 }
 
 function saveClientId(){
@@ -1000,57 +1295,53 @@ let _spFileCache = null;
 
 async function spFindFile(token){
   if(_spFileCache) return _spFileCache;
+  if(!SP_CONFIG) throw new Error('App ikke konfigureret');
 
-  // 1) Hent site
-  const url = new URL(SP_SITE);
-  const siteUrl = `https://graph.microsoft.com/v1.0/sites/${url.hostname}:${url.pathname}`;
-  const siteRes = await fetch(siteUrl, { headers: { Authorization: 'Bearer ' + token } });
-  if(!siteRes.ok){
-    const t = await siteRes.text();
-    throw new Error('Site fejl ' + siteRes.status + ': ' + t.slice(0,80));
-  }
-  const site = await siteRes.json();
-
-  // 2) Søg efter filen i drevet
-  const searchUrl = `https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/search(q='${encodeURIComponent(SP_FILE)}')`;
-  const searchRes = await fetch(searchUrl, { headers: { Authorization: 'Bearer ' + token } });
-  if(!searchRes.ok){
-    const t = await searchRes.text();
-    throw new Error('Søg fejl ' + searchRes.status + ': ' + t.slice(0,80));
-  }
-  const searchData = await searchRes.json();
-  const found = (searchData.value || []).find(f => f.name === SP_FILE);
-  if(!found) throw new Error('Filen "' + SP_FILE + '" findes ikke i SharePoint');
-
-  // 3) Find tabel i filen
-  const tabUrl = `https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/tables`;
-  const tabRes = await fetch(tabUrl, { headers: { Authorization: 'Bearer ' + token } });
-  if(!tabRes.ok){
-    const t = await tabRes.text();
-    throw new Error('Tabel fejl ' + tabRes.status + ': ' + t.slice(0,80));
-  }
-  const tabData = await tabRes.json();
-  if(!tabData.value || !tabData.value.length){
-    throw new Error('Ingen tabel i Excel — formatér data som en tabel');
-  }
-
+  // Cachen bygger på det vi gemte ved setup
   _spFileCache = {
-    siteId: site.id,
-    fileId: found.id,
-    tableId: tabData.value[0].id,
-    tableName: tabData.value[0].name
+    mode: SP_CONFIG.mode,
+    siteId: SP_CONFIG.siteId,
+    fileId: SP_CONFIG.fileId,
+    tableId: SP_CONFIG.tableId
   };
+
+  // Verificér at filen og tabellen stadig findes
+  const baseUrl = SP_CONFIG.mode === 'onedrive'
+    ? `https://graph.microsoft.com/v1.0/me/drive/items/${SP_CONFIG.fileId}`
+    : `https://graph.microsoft.com/v1.0/sites/${SP_CONFIG.siteId}/drive/items/${SP_CONFIG.fileId}`;
+
+  const tabRes = await fetch(`${baseUrl}/workbook/tables/${SP_CONFIG.tableId}`, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+
+  if(!tabRes.ok){
+    _spFileCache = null;
+    if(tabRes.status === 404){
+      throw new Error('Excel-filen er flyttet eller slettet — kør opsætning igen i Indstillinger');
+    }
+    throw new Error('Tabel-fejl ' + tabRes.status);
+  }
+
   return _spFileCache;
+}
+
+function buildGraphBaseUrl(){
+  if(!SP_CONFIG) return null;
+  return SP_CONFIG.mode === 'onedrive'
+    ? `https://graph.microsoft.com/v1.0/me/drive/items/${SP_CONFIG.fileId}`
+    : `https://graph.microsoft.com/v1.0/sites/${SP_CONFIG.siteId}/drive/items/${SP_CONFIG.fileId}`;
 }
 
 async function syncTripToExcel(trip){
   if(!odAccount) throw new Error('Ikke logget ind');
+  if(!SP_CONFIG) throw new Error('App ikke konfigureret');
   const token = await getGraphToken();
   if(!token) throw new Error('Kan ikke hente adgangstoken');
 
-  const { siteId, fileId, tableId } = await spFindFile(token);
+  await spFindFile(token); // verificér at filen findes
 
-  const rowUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${tableId}/rows/add`;
+  const base = buildGraphBaseUrl();
+  const rowUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows/add`;
   const body = { values: [[
     trip.date,
     trip.odoStart,
@@ -1080,14 +1371,15 @@ async function syncTripToExcel(trip){
 }
 
 async function deleteTripFromExcel(tripId){
-  if(!odAccount) return false;
+  if(!odAccount || !SP_CONFIG) return false;
   try {
     const token = await getGraphToken();
     if(!token) return false;
 
-    const { siteId, fileId, tableId } = await spFindFile(token);
+    await spFindFile(token);
+    const base = buildGraphBaseUrl();
 
-    const rowsUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${tableId}/rows`;
+    const rowsUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows`;
     const r = await fetch(rowsUrl, { headers: { Authorization: 'Bearer ' + token } });
     if(!r.ok) return false;
     const data = await r.json();
@@ -1096,14 +1388,14 @@ async function deleteTripFromExcel(tripId){
     const idx = (data.value || []).findIndex(row => String(row.values[0][8]) === String(tripId));
     if(idx === -1) return false;
 
-    const delUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${tableId}/rows/itemAt(index=${idx})`;
+    const delUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows/itemAt(index=${idx})`;
     const delRes = await fetch(delUrl, {
       method: 'DELETE',
       headers: { Authorization: 'Bearer ' + token }
     });
     return delRes.ok;
   } catch(e){
-    console.warn('SharePoint delete error:', e);
+    console.warn('Delete error:', e);
     return false;
   }
 }

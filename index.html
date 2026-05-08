@@ -1127,11 +1127,8 @@ async function pickFile(fileId, fileName){
 }
 
 function downloadExcelTemplate(){
-  // Generer en simpel Excel-fil med tabel ved hjælp af en CSV der konverteres
-  // Da vi ikke kan generere ægte XLSX i browseren uden bibliotek,
-  // henter vi en pre-fabrikeret skabelon fra GitHub raw
   const a = document.createElement('a');
-  a.href = 'https://bil.kasperejgaard.dk/Kørebog_skabelon.xlsx';
+  a.href = 'koerebog_skabelon.xlsx';
   a.download = 'Kørebog_skabelon.xlsx';
   document.body.appendChild(a);
   a.click();
@@ -1730,30 +1727,36 @@ async function saveTrip(){
   const setBtn = (txt, color) => { if(btn){ btn.textContent = txt; btn.style.background = color; btn.disabled = true; } };
   const resetBtn = () => { if(btn){ btn.textContent = 'Gem kørsel'; btn.style.background = ''; checkSaveReady(); } };
 
-  setBtn('✓ Kørsel gemt!', '#16a34a');
+  // Vis grøn "Kørsel gemt" i 2 sekunder
+  setBtn('✓ Kørsel gemt', '#16a34a');
+  await new Promise(r => setTimeout(r, 2000));
 
   // SharePoint sync
-  if(odAccount){
+  if(odAccount && SP_CONFIG){
     setBtn('☁️ Synkroniserer...', '#2563eb');
     let ok = false;
     try {
       ok = await syncTripToExcel(trip);
     } catch(e){
-      setBtn('⚠ ' + e.message.slice(0,30), '#dc2626');
-      setTimeout(resetBtn, 4000);
+      setBtn('⚠ ' + e.message.slice(0,40), '#dc2626');
+      setTimeout(resetBtn, 6000);
       return;
     }
     if(ok){
       trips[0].synced = true;
       saveTrips();
-      setBtn('✓ Gemt i SharePoint', '#15803d');
+      setBtn('☁️ Gemt i ' + (SP_CONFIG.mode === 'onedrive' ? 'OneDrive' : 'SharePoint'), '#15803d');
+      setTimeout(resetBtn, 2500);
     } else {
       setBtn('⚠ Sync fejlede — prøv igen', '#dc2626');
+      setTimeout(resetBtn, 5000);
     }
-    setTimeout(resetBtn, 4000);
+  } else if(!SP_CONFIG){
+    setBtn('⚠ Vælg Excel-fil i Indstillinger', '#dc2626');
+    setTimeout(resetBtn, 5000);
   } else {
-    setBtn('✓ Gemt lokalt', '#16a34a');
-    setTimeout(resetBtn, 3000);
+    setBtn('⚠ Ikke logget ind — kun gemt lokalt', '#dc2626');
+    setTimeout(resetBtn, 5000);
   }
 }
 

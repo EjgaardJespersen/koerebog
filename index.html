@@ -854,53 +854,29 @@ async function testWriteToExcel(){
   el.style.display = 'block';
   el.style.background = 'var(--surface2)';
   el.style.color = 'var(--text2)';
-  el.textContent = 'Skriver testrad...';
+  el.textContent = 'Skriver testrad til Excel...';
 
   try {
-    const token = await getGraphToken();
-    if(!token){ el.textContent = '❌ Ingen token'; el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-
-    const siteUrl = `https://graph.microsoft.com/v1.0/sites/${new URL(SP_SITE).hostname}:${new URL(SP_SITE).pathname}`;
-    const siteRes = await fetch(siteUrl, { headers: { Authorization: 'Bearer ' + token } });
-    const site = await siteRes.json();
-
-    const searchRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/search(q='${encodeURIComponent(SP_FILE)}')`, { headers: { Authorization: 'Bearer ' + token } });
-    const searchData = await searchRes.json();
-    const found = (searchData.value||[]).find(f => f.name === SP_FILE);
-    if(!found){ el.textContent = '❌ Fil ikke fundet'; el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-
-    const tabRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/tables`, { headers: { Authorization: 'Bearer ' + token } });
-    const tabData = await tabRes.json();
-    if(!tabData.value || !tabData.value.length){ el.textContent = '❌ Ingen tabel'; el.style.background='var(--red-light)'; el.style.color='var(--red)'; return; }
-    const tableId = tabData.value[0].id;
-
-    // Opret session
-    const sessRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/createSession`, {
-      method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ persistChanges: true })
-    });
-    const sess = await sessRes.json();
-    el.textContent += '\nSession: ' + (sess.id ? '✓' : '❌ ' + JSON.stringify(sess));
-
-    // Skriv række
-    const rowRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/tables/${tableId}/rows/add`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'workbook-session-id': sess.id || '' },
-      body: JSON.stringify({ values: [['2026-05-07', 50000, 50050, 50, 'Testadresse', '', 'Testdestination', 'TEST', 'TEST-999']] })
-    });
-    const rowData = await rowRes.json();
-    el.textContent += '\nRække HTTP: ' + rowRes.status;
-    if(!rowRes.ok){ el.textContent += '\n❌ ' + JSON.stringify(rowData).slice(0,200); el.style.background='var(--red-light)'; el.style.color='var(--red)'; }
-    else { el.textContent += '\n✓ Testrad skrevet til Excel!'; el.style.background='var(--green-light)'; el.style.color='var(--green)'; }
-
-    // Luk session
-    if(sess.id) await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/closeSession`, {
-      method: 'POST', headers: { Authorization: 'Bearer ' + token, 'workbook-session-id': sess.id }
-    }).catch(()=>{});
-
+    _spFileCache = null; // tving fri søgning
+    const testTrip = {
+      id: 'TEST-' + Date.now(),
+      date: new Date().toISOString().split('T')[0],
+      from: 'TEST Startadresse',
+      via: '',
+      to: 'TEST Slutadresse',
+      km: 50,
+      odoStart: 50000,
+      odoEnd: 50050,
+      purpose: 'TEST RÆKKE — kan slettes'
+    };
+    await syncTripToExcel(testTrip);
+    el.textContent = '✓ Testrad skrevet til Excel!\nÅbn dit ark i SharePoint og slet den manuelt.';
+    el.style.background = 'var(--green-light)';
+    el.style.color = 'var(--green)';
   } catch(e){
-    el.textContent = '❌ Fejl: ' + e.message;
-    el.style.background='var(--red-light)'; el.style.color='var(--red)';
+    el.textContent = '❌ ' + e.message;
+    el.style.background = 'var(--red-light)';
+    el.style.color = 'var(--red)';
   }
 }
 
@@ -1016,97 +992,91 @@ async function getGraphToken(){
   }
 }
 
-// ── SharePoint fil-ID og tabel-ID ──
-async function getSpFileId(token){
-  const siteUrl = `https://graph.microsoft.com/v1.0/sites/${new URL(SP_SITE).hostname}:${new URL(SP_SITE).pathname}`;
+// ═══════════════════════════════════════════════
+// ═══ SHAREPOINT INTEGRATION ═══
+// ═══════════════════════════════════════════════
+// Cacher fil-ID så vi kun finder filen én gang per session
+let _spFileCache = null;
+
+async function spFindFile(token){
+  if(_spFileCache) return _spFileCache;
+
+  // 1) Hent site
+  const url = new URL(SP_SITE);
+  const siteUrl = `https://graph.microsoft.com/v1.0/sites/${url.hostname}:${url.pathname}`;
   const siteRes = await fetch(siteUrl, { headers: { Authorization: 'Bearer ' + token } });
   if(!siteRes.ok){
-    const err = await siteRes.text();
-    throw new Error('Site fejl ' + siteRes.status + ': ' + err.slice(0,120));
+    const t = await siteRes.text();
+    throw new Error('Site fejl ' + siteRes.status + ': ' + t.slice(0,80));
   }
   const site = await siteRes.json();
 
-  // Søg efter filen i hele drevet
-  const searchRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/search(q='${encodeURIComponent(SP_FILE)}')`, {
-    headers: { Authorization: 'Bearer ' + token }
-  });
+  // 2) Søg efter filen i drevet
+  const searchUrl = `https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root/search(q='${encodeURIComponent(SP_FILE)}')`;
+  const searchRes = await fetch(searchUrl, { headers: { Authorization: 'Bearer ' + token } });
   if(!searchRes.ok){
-    const err = await searchRes.text();
-    throw new Error('Søg fejl ' + searchRes.status + ': ' + err.slice(0,120));
+    const t = await searchRes.text();
+    throw new Error('Søg fejl ' + searchRes.status + ': ' + t.slice(0,80));
   }
   const searchData = await searchRes.json();
   const found = (searchData.value || []).find(f => f.name === SP_FILE);
-  if(!found) throw new Error('Filen "' + SP_FILE + '" blev ikke fundet i SharePoint-drevet');
+  if(!found) throw new Error('Filen "' + SP_FILE + '" findes ikke i SharePoint');
 
-  return { fileId: found.id, siteId: site.id };
-}
-
-async function getOrCreateSpTable(token, siteId, fileId){
-  const tablesUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables`;
-  const r = await fetch(tablesUrl, { headers: { Authorization: 'Bearer ' + token } });
-  if(!r.ok){
-    const err = await r.text();
-    throw new Error('Tabel fejl ' + r.status + ': ' + err.slice(0,120));
+  // 3) Find tabel i filen
+  const tabUrl = `https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${found.id}/workbook/tables`;
+  const tabRes = await fetch(tabUrl, { headers: { Authorization: 'Bearer ' + token } });
+  if(!tabRes.ok){
+    const t = await tabRes.text();
+    throw new Error('Tabel fejl ' + tabRes.status + ': ' + t.slice(0,80));
   }
-  const data = await r.json();
-  if(data.value && data.value.length > 0) return { tableId: data.value[0].id, siteId };
-  throw new Error('Ingen tabel fundet i Excel-filen — er filen formateret som en tabel?');
+  const tabData = await tabRes.json();
+  if(!tabData.value || !tabData.value.length){
+    throw new Error('Ingen tabel i Excel — formatér data som en tabel');
+  }
+
+  _spFileCache = {
+    siteId: site.id,
+    fileId: found.id,
+    tableId: tabData.value[0].id,
+    tableName: tabData.value[0].name
+  };
+  return _spFileCache;
 }
 
 async function syncTripToExcel(trip){
-  if(!odAccount) return false;
-  try {
-    const token = await getGraphToken();
-    if(!token){ showToast('⚠ Kunne ikke hente adgangstoken', 'error'); return false; }
-    const { fileId, siteId } = await getSpFileId(token);
-    const t = await getOrCreateSpTable(token, siteId, fileId);
+  if(!odAccount) throw new Error('Ikke logget ind');
+  const token = await getGraphToken();
+  if(!token) throw new Error('Kan ikke hente adgangstoken');
 
-    // Opret workbook session
-    const sessionRes = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/createSession`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ persistChanges: true })
-    });
-    if(!sessionRes.ok){
-      const err = await sessionRes.text();
-      throw new Error('Session fejl ' + sessionRes.status + ': ' + err.slice(0,120));
-    }
-    const session = await sessionRes.json();
-    const sessionId = session.id;
+  const { siteId, fileId, tableId } = await spFindFile(token);
 
-    // Tilføj række
-    const rowUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${t.tableId}/rows/add`;
-    const rowData = { values: [[
-      trip.date, trip.odoStart, trip.odoEnd, trip.km,
-      trip.from, trip.via || '', trip.to,
-      trip.purpose || '', String(trip.id)
-    ]]};
-    const r = await fetch(rowUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-        'workbook-session-id': sessionId
-      },
-      body: JSON.stringify(rowData)
-    });
+  const rowUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${tableId}/rows/add`;
+  const body = { values: [[
+    trip.date,
+    trip.odoStart,
+    trip.odoEnd,
+    trip.km,
+    trip.from,
+    trip.via || '',
+    trip.to,
+    trip.purpose || '',
+    String(trip.id)
+  ]]};
 
-    // Luk session
-    await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/closeSession`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'workbook-session-id': sessionId }
-    }).catch(() => {});
+  const r = await fetch(rowUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
 
-    if(!r.ok){
-      const err = await r.text();
-      throw new Error('Række fejl ' + r.status + ': ' + err.slice(0,120));
-    }
-    return true;
-  } catch(e){
-    console.warn('SharePoint sync error:', e);
-    showToast('⚠ ' + e.message, 'error');
-    return false;
+  if(!r.ok){
+    const txt = await r.text();
+    throw new Error('Skriv ' + r.status + ': ' + txt.slice(0,100));
   }
+  return true;
 }
 
 async function deleteTripFromExcel(tripId){
@@ -1114,19 +1084,19 @@ async function deleteTripFromExcel(tripId){
   try {
     const token = await getGraphToken();
     if(!token) return false;
-    const { fileId, siteId } = await getSpFileId(token);
-    const t = await getOrCreateSpTable(token, siteId, fileId);
-    if(!t) return false;
 
-    const rowsUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${t.tableId}/rows`;
+    const { siteId, fileId, tableId } = await spFindFile(token);
+
+    const rowsUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${tableId}/rows`;
     const r = await fetch(rowsUrl, { headers: { Authorization: 'Bearer ' + token } });
     if(!r.ok) return false;
     const data = await r.json();
 
-    const rowIndex = (data.value || []).findIndex(row => String(row.values[0][8]) === String(tripId));
-    if(rowIndex === -1) return false;
+    // ID er i kolonne I (index 8)
+    const idx = (data.value || []).findIndex(row => String(row.values[0][8]) === String(tripId));
+    if(idx === -1) return false;
 
-    const delUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${t.tableId}/rows/itemAt(index=${rowIndex})`;
+    const delUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/items/${fileId}/workbook/tables/${tableId}/rows/itemAt(index=${idx})`;
     const delRes = await fetch(delUrl, {
       method: 'DELETE',
       headers: { Authorization: 'Bearer ' + token }
@@ -1438,7 +1408,6 @@ function checkSaveReady(){
 
 // ═══ SAVE TRIP ═══
 async function saveTrip(){
-  const btn = document.getElementById('save-btn');
   const oStart = parseInt(document.getElementById('odo-start').value);
   const oEnd   = parseInt(document.getElementById('odo-end').value);
   if(isNaN(oStart) && isNaN(oEnd)){ setSaveBtnStatus('⚠ Angiv km-stand', '#dc2626'); return; }
@@ -1497,32 +1466,10 @@ async function saveTrip(){
 }
 
 function setSaveBtnStatus(msg, color){
-  const btn = document.getElementById('save-btn');
-  if(!btn) return;
-  btn.textContent = msg;
-  btn.style.background = color;
-  btn.disabled = true;
-  setTimeout(() => {
-    btn.textContent = 'Gem kørsel';
-    btn.style.background = '';
-    checkSaveReady();
-  }, 3000);
-}
-
-function showSyncBanner(msg, success, error){
-  let banner = document.getElementById('sync-banner');
-  if(!banner){
-    banner = document.createElement('div');
-    banner.id = 'sync-banner';
-    banner.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top) + 80px);left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:3000;box-shadow:0 4px 20px rgba(0,0,0,0.2);white-space:nowrap;transition:opacity .3s';
-    document.body.appendChild(banner);
-  }
-  banner.textContent = msg;
-  banner.style.opacity = '1';
-  banner.style.background = success ? '#15803d' : error ? '#dc2626' : '#1f2937';
-  if(success || error){
-    setTimeout(() => { banner.style.opacity = '0'; }, 4000);
-  }
+  const b = document.getElementById('save-btn');
+  if(!b) return;
+  b.textContent = msg; b.style.background = color; b.disabled = true;
+  setTimeout(() => { b.textContent = 'Gem kørsel'; b.style.background = ''; checkSaveReady(); }, 3000);
 }
 
 function resetForm(){

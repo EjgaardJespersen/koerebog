@@ -1721,11 +1721,13 @@ async function saveTrip(){
   saveTrips();
   updateTotalBadge();
   renderLog();
-  resetForm();
 
   const btn = document.getElementById('save-btn');
   const setBtn = (txt, color) => { if(btn){ btn.textContent = txt; btn.style.background = color; btn.disabled = true; } };
-  const resetBtn = () => { if(btn){ btn.textContent = 'Gem kørsel'; btn.style.background = ''; checkSaveReady(); } };
+  const resetBtn = () => {
+    resetForm();
+    if(btn){ btn.textContent = 'Gem kørsel'; btn.style.background = ''; checkSaveReady(); }
+  };
 
   // Vis grøn "Kørsel gemt" i 2 sekunder
   setBtn('✓ Kørsel gemt', '#16a34a');
@@ -1745,6 +1747,7 @@ async function saveTrip(){
     if(ok){
       trips[0].synced = true;
       saveTrips();
+      renderLog();
       setBtn('☁️ Gemt i ' + (SP_CONFIG.mode === 'onedrive' ? 'OneDrive' : 'SharePoint'), '#15803d');
       setTimeout(resetBtn, 2500);
     } else {

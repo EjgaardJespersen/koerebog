@@ -262,10 +262,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .settings-action.red:active{background:var(--red-light)}
 
 /* ═══ FAVORITES MODAL ═══ */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;display:none;align-items:flex-start;justify-content:center;backdrop-filter:blur(4px);padding-top:calc(var(--sat) + 12px)}
 .modal-overlay.open{display:flex}
-.modal-sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + var(--sab));width:100%;max-width:430px;max-height:80svh;overflow-y:auto;animation:sheetUp .28s cubic-bezier(.34,1.56,.64,1)}
-@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-sheet{background:var(--surface);border-radius:0 0 20px 20px;padding:20px 20px;width:100%;max-width:430px;max-height:calc(100svh - var(--sat) - 24px);overflow-y:auto;animation:sheetDown .28s cubic-bezier(.34,1.56,.64,1);box-shadow:0 8px 30px rgba(0,0,0,0.18)}
+@keyframes sheetDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
 .modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px}
 .modal-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px}
 .fav-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
@@ -380,13 +380,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 /* ═══ FAV TARGET PICKER ═══ */
 .fav-target-modal{
   position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1100;
-  display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px);
+  display:none;align-items:flex-start;justify-content:center;backdrop-filter:blur(3px);
+  padding-top:calc(var(--sat) + 12px);
 }
 .fav-target-modal.open{display:flex}
 .fav-target-sheet{
-  background:var(--surface);border-radius:20px 20px 0 0;
-  padding:18px 18px calc(18px + var(--sab));width:100%;max-width:430px;
-  animation:sheetUp .25s cubic-bezier(.34,1.56,.64,1);
+  background:var(--surface);border-radius:0 0 20px 20px;
+  padding:18px 18px;width:100%;max-width:430px;
+  animation:sheetDown .25s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 8px 30px rgba(0,0,0,0.18);
 }
 .fav-target-options{display:flex;gap:8px;margin-top:12px}
 .fav-target-opt{
@@ -635,7 +637,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="topbar-inner">
         <div class="app-icon">🚗</div>
         <div class="topbar-titles">
-          <h1>Kørebog – Kasper Ejgaard Jespersen</h1>
+          <h1 id="top-title">Kørebog – Kasper Ejgaard Jespersen</h1>
           <p id="top-date">–</p>
         </div>
         <div class="header-right">
@@ -649,14 +651,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
   <!-- ═══ VIEW: NY KØRSEL ═══ -->
   <div class="view active" id="view-new">
-
-    <!-- BIL -->
-    <div class="car-picker-card" id="car-picker-card">
-      <div class="car-picker-icon">🚗</div>
-      <select class="car-picker-select" id="car-picker" onchange="setActiveCar(this.value)">
-        <option value="">Vælg bil...</option>
-      </select>
-    </div>
 
     <!-- RUTE -->
     <div class="card">
@@ -717,7 +711,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="card-title">
         🔢 Km-stand &amp; detaljer
         <span id="odo-hint" style="font-size:10px;color:var(--blue);font-weight:500;letter-spacing:0;text-transform:none;margin-left:2px;display:none">· ét felt beregnes auto</span>
-        <span id="active-car-label" style="font-size:11px;color:var(--blue);font-weight:600;letter-spacing:0;text-transform:none;margin-left:auto;display:none;padding:3px 10px;background:var(--blue-light);border-radius:12px"></span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div class="field">
@@ -852,8 +845,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <button class="menu-item" onclick="openCarManager()">
       <div class="menu-item-icon">🚗</div> Mine biler
     </button>
-    <button class="menu-item" onclick="openCarManagerForAdd()" style="padding-left:54px;font-size:13px;color:var(--blue);font-weight:600">
-      ＋ Tilføj bil
+    <button class="menu-item" onclick="openCarManagerForAdd()" style="padding-left:32px;font-size:13px;color:var(--blue);font-weight:600">
+      <div class="menu-item-icon">＋</div> Tilføj bil
     </button>
     <button class="menu-item" onclick="openFavManager(); closeMenu()">
       <div class="menu-item-icon">⭐</div> Favoritadresser
@@ -874,7 +867,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="fav-list" id="fav-list"></div>
     <div class="fav-add-form">
       <input id="fav-name-input" type="text" placeholder="Navn (fx. Kontor, Hjem, Kunde A)">
-      <input id="fav-addr-input" type="text" placeholder="Adresse (fx. Vesterbrogade 10, København)">
+      <div class="addr-wrap" style="position:relative">
+        <input id="fav-addr-input" type="text" placeholder="Adresse (fx. Vesterbrogade 10, København)" autocomplete="off">
+        <div class="suggestions" id="sug-fav-addr-input"></div>
+      </div>
       <div class="btn-row">
         <button class="btn-secondary" onclick="closeFavModal()">Luk</button>
         <button class="btn-primary-sm" onclick="addFavorite()">＋ Tilføj</button>
@@ -1199,35 +1195,19 @@ function saveCars(){
 }
 
 function updateActiveCarLabel(){
-  const lbl = document.getElementById('active-car-label');
-  if(!lbl) return;
+  const titleEl = document.getElementById('top-title');
+  const dateEl = document.getElementById('top-date');
+  if(!titleEl) return;
   const car = cars.find(c => c.reg === activeCar);
   if(car){
-    lbl.textContent = '🚗 ' + car.name;
-    lbl.style.display = 'inline-block';
+    titleEl.textContent = car.name + ' · ' + car.reg;
   } else {
-    lbl.style.display = 'none';
+    titleEl.textContent = 'Kørebog – Kasper Ejgaard Jespersen';
   }
 }
 
 function renderCarPicker(){
-  const sel = document.getElementById('car-picker');
-  if(!sel) return;
-  if(cars.length === 0){
-    sel.innerHTML = '<option value="">Ingen biler — tilføj via menuen</option>';
-    sel.disabled = true;
-    updateActiveCarLabel();
-    return;
-  }
-  sel.disabled = false;
-  sel.innerHTML = cars.map(c =>
-    `<option value="${esc(c.reg)}" ${c.reg === activeCar ? 'selected' : ''}>${esc(c.name)} · ${esc(c.reg)}</option>`
-  ).join('');
-  if(!activeCar && cars.length > 0){
-    activeCar = cars[0].reg;
-    saveCars();
-    sel.value = activeCar;
-  }
+  // Bil-vælger fjernet fra forsiden — kun opdater topbar-label
   updateActiveCarLabel();
 }
 
@@ -1259,20 +1239,25 @@ function closeCarModal(e){
 function renderCarList(){
   const list = document.getElementById('car-list');
   if(!cars.length){
-    list.innerHTML = '<div class="empty-favs">Ingen biler tilføjet endnu.</div>';
+    list.innerHTML = '<div class="empty-favs">Ingen biler tilføjet endnu.<br>Udfyld navn og reg.nr nedenfor.</div>';
     return;
   }
   list.innerHTML = cars.map((c, i) => `
-    <div class="fav-item">
+    <div class="fav-item" style="cursor:pointer" onclick="selectActiveCarFromList('${esc(c.reg)}')">
       <span style="font-size:18px">🚗</span>
       <div style="flex:1">
         <div class="fav-name">${esc(c.name)}</div>
         <div class="fav-addr">${esc(c.reg)}</div>
       </div>
-      ${c.reg === activeCar ? '<span style="font-size:11px;color:var(--green);font-weight:700">AKTIV</span>' : ''}
-      <button class="fav-remove" onclick="removeCar(${i})">✕</button>
+      ${c.reg === activeCar ? '<span style="font-size:11px;color:var(--green);font-weight:700;background:var(--green-light);padding:3px 8px;border-radius:10px">AKTIV</span>' : '<span style="font-size:11px;color:var(--blue);font-weight:600">Vælg</span>'}
+      <button class="fav-remove" onclick="event.stopPropagation();removeCar(${i})">✕</button>
     </div>
   `).join('');
+}
+
+function selectActiveCarFromList(reg){
+  setActiveCar(reg);
+  renderCarList();
 }
 function addCar(){
   const name = document.getElementById('car-name-input').value.trim();
@@ -1888,9 +1873,14 @@ function closeVia(){
 }
 
 // ═══ FAVORITES ═══
+let _favAutocompleteSetup = false;
 function openFavManager(){
   renderFavList();
   document.getElementById('fav-modal').classList.add('open');
+  if(!_favAutocompleteSetup){
+    setupAutocomplete('fav-addr-input');
+    _favAutocompleteSetup = true;
+  }
 }
 function closeFavModal(e){
   if(!e || e.target === document.getElementById('fav-modal'))

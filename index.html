@@ -714,7 +714,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
     <!-- KM-STAND + DATO + FORMÅL (samlet kort) -->
     <div class="card">
-      <div class="card-title">🔢 Km-stand &amp; detaljer <span id="odo-hint" style="font-size:10px;color:var(--blue);font-weight:500;letter-spacing:0;text-transform:none;margin-left:2px;display:none">· ét felt beregnes auto</span></div>
+      <div class="card-title">
+        🔢 Km-stand &amp; detaljer
+        <span id="odo-hint" style="font-size:10px;color:var(--blue);font-weight:500;letter-spacing:0;text-transform:none;margin-left:2px;display:none">· ét felt beregnes auto</span>
+        <span id="active-car-label" style="font-size:11px;color:var(--blue);font-weight:600;letter-spacing:0;text-transform:none;margin-left:auto;display:none;padding:3px 10px;background:var(--blue-light);border-radius:12px"></span>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div class="field">
           <label>Start km-stand</label>
@@ -847,6 +851,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="menu-divider"></div>
     <button class="menu-item" onclick="openCarManager()">
       <div class="menu-item-icon">🚗</div> Mine biler
+    </button>
+    <button class="menu-item" onclick="openCarManagerForAdd()" style="padding-left:54px;font-size:13px;color:var(--blue);font-weight:600">
+      ＋ Tilføj bil
     </button>
     <button class="menu-item" onclick="openFavManager(); closeMenu()">
       <div class="menu-item-icon">⭐</div> Favoritadresser
@@ -1191,29 +1198,43 @@ function saveCars(){
   localStorage.setItem('kb_active_car', activeCar);
 }
 
+function updateActiveCarLabel(){
+  const lbl = document.getElementById('active-car-label');
+  if(!lbl) return;
+  const car = cars.find(c => c.reg === activeCar);
+  if(car){
+    lbl.textContent = '🚗 ' + car.name;
+    lbl.style.display = 'inline-block';
+  } else {
+    lbl.style.display = 'none';
+  }
+}
+
 function renderCarPicker(){
   const sel = document.getElementById('car-picker');
   if(!sel) return;
   if(cars.length === 0){
-    sel.innerHTML = '<option value="">Ingen biler — tryk ＋ for at tilføje</option>';
+    sel.innerHTML = '<option value="">Ingen biler — tilføj via menuen</option>';
     sel.disabled = true;
+    updateActiveCarLabel();
     return;
   }
   sel.disabled = false;
   sel.innerHTML = cars.map(c =>
     `<option value="${esc(c.reg)}" ${c.reg === activeCar ? 'selected' : ''}>${esc(c.name)} · ${esc(c.reg)}</option>`
   ).join('');
-  // Hvis ingen aktiv bil, vælg første
   if(!activeCar && cars.length > 0){
     activeCar = cars[0].reg;
     saveCars();
     sel.value = activeCar;
   }
+  updateActiveCarLabel();
 }
 
 function setActiveCar(reg){
   activeCar = reg;
   saveCars();
+  updateActiveCarLabel();
   checkSaveReady();
 }
 
@@ -1221,6 +1242,15 @@ function openCarManager(){
   closeMenu();
   renderCarList();
   document.getElementById('car-modal').classList.add('open');
+}
+function openCarManagerForAdd(){
+  closeMenu();
+  renderCarList();
+  document.getElementById('car-modal').classList.add('open');
+  setTimeout(() => {
+    const input = document.getElementById('car-name-input');
+    if(input) input.focus();
+  }, 350);
 }
 function closeCarModal(e){
   if(!e || e.target === document.getElementById('car-modal'))

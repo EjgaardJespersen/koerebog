@@ -1140,7 +1140,11 @@ async function revealApp(){
 
   // Hent kørsler fra Excel ved opstart så loggen er synkroniseret
   loadTripsFromExcel().then(ok => {
-    if(ok) updateTotalBadge();
+    if(ok){
+      updateTotalBadge();
+      renderLog();
+      renderStats();
+    }
   });
 
   ['from','via','to'].forEach(id => setupAutocomplete(id));
@@ -2427,13 +2431,24 @@ function switchTab(name){
   if(name==='log'){
     renderLog();
     showLogSyncIndicator(true);
-    loadTripsFromExcel().then(ok => { showLogSyncIndicator(false, ok); if(ok) renderLog(); });
+    loadTripsFromExcel().then(ok => {
+      showLogSyncIndicator(false, ok);
+      if(ok){ renderLog(); updateTotalBadge(); }
+    });
   }
   if(name==='stats'){
     renderStats();
-    loadTripsFromExcel().then(ok => { if(ok) renderStats(); });
+    loadTripsFromExcel().then(ok => {
+      if(ok){ renderStats(); updateTotalBadge(); }
+    });
   }
   if(name==='settings') updateOdUI();
+  if(name==='new'){
+    // Sync også på hjemskærmen, så km-badge er korrekt
+    loadTripsFromExcel().then(ok => {
+      if(ok) updateTotalBadge();
+    });
+  }
 }
 
 function showLogSyncIndicator(loading, success){

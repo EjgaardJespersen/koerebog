@@ -656,13 +656,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <select class="car-picker-select" id="car-picker" onchange="setActiveCar(this.value)">
         <option value="">Vælg bil...</option>
       </select>
-      <button class="car-picker-add" onclick="openCarManager()">＋</button>
-    </div>
-
-    <!-- FAVORITTER -->
-    <div class="front-fav-card" id="front-fav-card">
-      <span class="front-fav-label">⭐ Favoritter</span>
-      <div id="front-fav-chips" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
     </div>
 
     <!-- RUTE -->
@@ -709,14 +702,14 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
 
       <!-- Resultat -->
-      <div class="route-result" id="route-result">
+      <div class="route-result" id="route-result" style="display:none">
         <div class="dist-main">
-          <div class="dist-km" id="dist-km" style="display:none">– <span>km</span></div>
-          <div class="dist-sub" id="dist-sub" style="display:none"></div>
-          <div class="dist-status" id="dist-status">Tryk Beregn</div>
+          <div class="dist-km" id="dist-km">– <span>km</span></div>
+          <div class="dist-sub" id="dist-sub"></div>
+          <div class="dist-status" id="dist-status" style="display:none"></div>
         </div>
-        <button class="calc-btn" id="calc-btn" onclick="calcRoute()" disabled>Beregn 🗺️</button>
       </div>
+      <button class="calc-btn" id="calc-btn" onclick="calcRoute()" disabled style="width:100%;padding:12px;font-size:14px;border-radius:11px">Beregn km</button>
     </div>
 
     <!-- KM-STAND + DATO + FORMÅL (samlet kort) -->
@@ -843,7 +836,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   </div>
   <div class="menu-items">
     <button class="menu-item active" id="menu-new" onclick="switchTab('new')">
-      <div class="menu-item-icon">➕</div> Ny kørsel
+      <div class="menu-item-icon">🏠</div> Hjem
     </button>
     <button class="menu-item" id="menu-log" onclick="switchTab('log')">
       <div class="menu-item-icon">📋</div> Log

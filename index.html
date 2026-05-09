@@ -845,7 +845,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <button class="menu-item" onclick="openCarManager()">
       <div class="menu-item-icon">🚗</div> Mine biler
     </button>
-    <button class="menu-item" onclick="openCarManagerForAdd()" style="padding-left:32px;font-size:13px;color:var(--blue);font-weight:600">
+    <button class="menu-item" onclick="openCarManagerForAdd()" style="color:var(--blue)">
       <div class="menu-item-icon">＋</div> Tilføj bil
     </button>
     <button class="menu-item" onclick="openFavManager(); closeMenu()">
@@ -1197,12 +1197,17 @@ function saveCars(){
 function updateActiveCarLabel(){
   const titleEl = document.getElementById('top-title');
   const dateEl = document.getElementById('top-date');
-  if(!titleEl) return;
+  if(!titleEl || !dateEl) return;
+  // Titel skal altid stå
+  titleEl.textContent = 'Kørebog – Kasper Ejgaard Jespersen';
+  // Bilen vises i undertekst i stedet for dato
   const car = cars.find(c => c.reg === activeCar);
   if(car){
-    titleEl.textContent = car.name + ' · ' + car.reg;
+    dateEl.textContent = '🚗 ' + car.name + ' · ' + car.reg;
   } else {
-    titleEl.textContent = 'Kørebog – Kasper Ejgaard Jespersen';
+    // Fald tilbage til dato hvis ingen bil
+    const now = new Date();
+    dateEl.textContent = now.toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'});
   }
 }
 

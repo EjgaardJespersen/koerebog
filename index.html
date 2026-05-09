@@ -57,7 +57,7 @@ html{background:var(--bg);height:100%;-webkit-text-size-adjust:100%}
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100%;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
 
 /* ═══ LAYOUT ═══ */
-.app{max-width:430px;margin:0 auto;min-height:100svh;display:flex;flex-direction:column;padding-bottom:calc(72px + var(--sab))}
+.app{max-width:430px;margin:0 auto;min-height:100svh;display:flex;flex-direction:column;padding-bottom:20px}
 
 /* ═══ TOPBAR ═══ */
 .topbar-wrap{
@@ -284,7 +284,119 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .btn-primary-sm:active{opacity:0.85}
 .empty-favs{text-align:center;padding:24px;color:var(--muted);font-size:13px}
 
-/* ═══ SETUP SCREEN ═══ */
+/* ═══ HAMBURGER MENU ═══ */
+.hamburger-btn{
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:10px;
+  width:36px;height:36px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;padding:0;
+  -webkit-appearance:none;
+  transition:background .15s;
+}
+.hamburger-btn:active{background:var(--border)}
+.hamburger-btn span{display:block;width:16px;height:2px;background:var(--text2);border-radius:1px}
+
+.menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:none;backdrop-filter:blur(3px)}
+.menu-overlay.open{display:block;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.side-menu{
+  position:fixed;
+  top:0;right:-320px;bottom:0;
+  width:280px;max-width:80vw;
+  background:var(--surface);
+  z-index:1001;
+  box-shadow:-4px 0 20px rgba(0,0,0,0.15);
+  display:flex;flex-direction:column;
+  padding-top:calc(var(--sat) + 16px);
+  padding-bottom:calc(var(--sab) + 16px);
+  transition:right .25s cubic-bezier(.34,1.4,.64,1);
+}
+.side-menu.open{right:0}
+.menu-header{padding:6px 20px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.menu-title{font-size:16px;font-weight:700;color:var(--text)}
+.menu-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);padding:4px 8px;border-radius:8px;-webkit-appearance:none}
+.menu-close:active{color:var(--text);background:var(--surface2)}
+.menu-items{flex:1;display:flex;flex-direction:column;padding:12px 8px;gap:2px;overflow-y:auto}
+.menu-item{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 14px;border-radius:10px;
+  background:none;border:none;
+  font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;
+  color:var(--text);text-align:left;
+  cursor:pointer;-webkit-appearance:none;
+  transition:background .12s;
+}
+.menu-item:active,.menu-item.active{background:var(--blue-light);color:var(--blue)}
+.menu-item-icon{width:32px;height:32px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.menu-item.active .menu-item-icon{background:#fff}
+.menu-divider{height:1px;background:var(--border);margin:8px 14px}
+.menu-footer{padding:14px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center}
+
+/* ═══ CAR PICKER ═══ */
+.car-picker-card{
+  background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-sm);
+  padding:10px 14px;display:flex;align-items:center;gap:10px;
+}
+.car-picker-icon{width:30px;height:30px;border-radius:8px;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.car-picker-select{
+  flex:1;background:transparent;border:none;
+  font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;color:var(--text);
+  outline:none;-webkit-appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b92a5' stroke-width='2.5'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat;background-position:right 4px center;padding-right:24px;
+}
+.car-picker-add{background:var(--surface2);border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--blue);cursor:pointer;-webkit-appearance:none;font-family:'Outfit',sans-serif}
+.car-picker-add:active{background:var(--blue-light)}
+.car-picker-warn{font-size:11px;color:var(--red);margin-top:4px;font-weight:500}
+
+/* ═══ FAV CARD ON FRONT PAGE ═══ */
+.front-fav-card{
+  background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-sm);
+  padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.front-fav-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-right:4px}
+.front-fav-chip{
+  background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:18px;padding:5px 11px;
+  font-size:12px;font-weight:600;color:var(--text2);
+  cursor:pointer;-webkit-appearance:none;
+  display:flex;align-items:center;gap:5px;
+  transition:background .12s,border-color .12s;
+  font-family:'Outfit',sans-serif;
+}
+.front-fav-chip:active{background:var(--blue-light);border-color:var(--blue);color:var(--blue)}
+.front-fav-add{
+  background:none;border:1.5px dashed var(--border2);
+  border-radius:18px;padding:5px 11px;
+  font-size:12px;font-weight:600;color:var(--muted);
+  cursor:pointer;-webkit-appearance:none;
+  font-family:'Outfit',sans-serif;
+}
+.front-fav-add:active{border-color:var(--blue);color:var(--blue)}
+
+/* ═══ FAV TARGET PICKER ═══ */
+.fav-target-modal{
+  position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1100;
+  display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px);
+}
+.fav-target-modal.open{display:flex}
+.fav-target-sheet{
+  background:var(--surface);border-radius:20px 20px 0 0;
+  padding:18px 18px calc(18px + var(--sab));width:100%;max-width:430px;
+  animation:sheetUp .25s cubic-bezier(.34,1.56,.64,1);
+}
+.fav-target-options{display:flex;gap:8px;margin-top:12px}
+.fav-target-opt{
+  flex:1;padding:14px 8px;background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:12px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;
+  color:var(--text);cursor:pointer;-webkit-appearance:none;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.fav-target-opt:active{border-color:var(--blue);background:var(--blue-light);color:var(--blue)}
+.fav-target-opt-icon{font-size:22px}
 .setup-screen{
   position:fixed;inset:0;
   background:var(--bg);
@@ -528,7 +640,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         </div>
         <div class="header-right">
           <div class="km-badge" id="total-badge">0 km</div>
-          <div class="sync-dot" id="sync-dot" title="OneDrive status"></div>
+          <button class="hamburger-btn" onclick="toggleMenu()" aria-label="Menu"><span></span><span></span><span></span></button>
+          <div class="sync-dot" id="sync-dot" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -536,6 +649,21 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
   <!-- ═══ VIEW: NY KØRSEL ═══ -->
   <div class="view active" id="view-new">
+
+    <!-- BIL -->
+    <div class="car-picker-card" id="car-picker-card">
+      <div class="car-picker-icon">🚗</div>
+      <select class="car-picker-select" id="car-picker" onchange="setActiveCar(this.value)">
+        <option value="">Vælg bil...</option>
+      </select>
+      <button class="car-picker-add" onclick="openCarManager()">＋</button>
+    </div>
+
+    <!-- FAVORITTER -->
+    <div class="front-fav-card" id="front-fav-card">
+      <span class="front-fav-label">⭐ Favoritter</span>
+      <div id="front-fav-chips" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
+    </div>
 
     <!-- RUTE -->
     <div class="card">
@@ -585,7 +713,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="dist-main">
           <div class="dist-km" id="dist-km" style="display:none">– <span>km</span></div>
           <div class="dist-sub" id="dist-sub" style="display:none"></div>
-          <div class="dist-status" id="dist-status">Udfyld adresser og tryk Beregn</div>
+          <div class="dist-status" id="dist-status">Tryk Beregn</div>
         </div>
         <button class="calc-btn" id="calc-btn" onclick="calcRoute()" disabled>Beregn 🗺️</button>
       </div>
@@ -655,7 +783,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <button class="od-btn" id="od-btn" onclick="resetSetup()">Skift</button>
       </div>
       <div style="margin-top:10px">
-        <button class="export-btn" onclick="testWriteToExcel()" style="font-size:13px;padding:9px;background:var(--blue-light);color:var(--blue);border-color:var(--blue)">✏️ Test gem testrad i Excel</button>
+        <button class="export-btn" onclick="testWriteToExcel()" style="font-size:13px;padding:9px;background:var(--blue-light);color:var(--blue);border-color:var(--blue)">🔄 Test synkronisering</button>
         <div id="sp-test-result" style="display:none;margin-top:8px;font-size:12px;border-radius:8px;padding:8px 12px;line-height:1.5;white-space:pre-wrap"></div>
       </div>
     </div>
@@ -706,27 +834,37 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
 </div><!-- end .app -->
 
-<!-- BOTTOM NAV -->
-<nav class="bottom-nav">
-  <div class="bottom-nav-inner">
-    <button class="nav-btn active" id="nav-new" onclick="switchTab('new')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      Ny kørsel
+<!-- SIDE MENU -->
+<div class="menu-overlay" id="menu-overlay" onclick="closeMenu()"></div>
+<div class="side-menu" id="side-menu">
+  <div class="menu-header">
+    <div class="menu-title">Menu</div>
+    <button class="menu-close" onclick="closeMenu()" aria-label="Luk">✕</button>
+  </div>
+  <div class="menu-items">
+    <button class="menu-item active" id="menu-new" onclick="switchTab('new')">
+      <div class="menu-item-icon">➕</div> Ny kørsel
     </button>
-    <button class="nav-btn" id="nav-log" onclick="switchTab('log')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
-      Log
+    <button class="menu-item" id="menu-log" onclick="switchTab('log')">
+      <div class="menu-item-icon">📋</div> Log
     </button>
-    <button class="nav-btn" id="nav-stats" onclick="switchTab('stats')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="12" width="5" height="10"/><rect x="9" y="7" width="5" height="15"/><rect x="16" y="3" width="5" height="19"/></svg>
-      Statistik
+    <button class="menu-item" id="menu-stats" onclick="switchTab('stats')">
+      <div class="menu-item-icon">📊</div> Statistik
     </button>
-    <button class="nav-btn" id="nav-settings" onclick="switchTab('settings')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Indstillinger
+    <div class="menu-divider"></div>
+    <button class="menu-item" onclick="openCarManager()">
+      <div class="menu-item-icon">🚗</div> Mine biler
+    </button>
+    <button class="menu-item" onclick="openFavManager(); closeMenu()">
+      <div class="menu-item-icon">⭐</div> Favoritadresser
+    </button>
+    <div class="menu-divider"></div>
+    <button class="menu-item" id="menu-settings" onclick="switchTab('settings')">
+      <div class="menu-item-icon">⚙️</div> Indstillinger
     </button>
   </div>
-</nav>
+  <div class="menu-footer">Logget ind som <span id="menu-user-email">–</span></div>
+</div>
 
 <!-- FAVORITES MODAL -->
 <div class="modal-overlay" id="fav-modal" onclick="closeFavModal(event)">
@@ -755,12 +893,52 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   </div>
 </div>
 
+<!-- FAV TARGET PICKER (vælg om favorit er for start, via eller slut) -->
+<div class="fav-target-modal" id="fav-target-modal" onclick="closeFavTarget(event)">
+  <div class="fav-target-sheet" onclick="e=>e.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="fav-target-title">Indsæt favorit</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px" id="fav-target-name"></div>
+    <div class="fav-target-options">
+      <button class="fav-target-opt" onclick="applyFavTarget('from')">
+        <span class="fav-target-opt-icon">▲</span>Start
+      </button>
+      <button class="fav-target-opt" onclick="applyFavTarget('via')">
+        <span class="fav-target-opt-icon">◆</span>Via
+      </button>
+      <button class="fav-target-opt" onclick="applyFavTarget('to')">
+        <span class="fav-target-opt-icon">●</span>Slut
+      </button>
+    </div>
+    <button class="btn-secondary" onclick="closeFavTarget()" style="margin-top:10px;width:100%">Annuller</button>
+  </div>
+</div>
+
+<!-- CAR MANAGER MODAL -->
+<div class="modal-overlay" id="car-modal" onclick="closeCarModal(event)">
+  <div class="modal-sheet" onclick="e=>e.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🚗 Mine biler</div>
+    <div class="fav-list" id="car-list"></div>
+    <div class="fav-add-form">
+      <input id="car-name-input" type="text" placeholder="Navn (fx. Firmabil, Privatbil)">
+      <input id="car-reg-input" type="text" placeholder="Registreringsnummer (fx. AB12345)" style="text-transform:uppercase">
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="closeCarModal()">Luk</button>
+        <button class="btn-primary-sm" onclick="addCar()">＋ Tilføj bil</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 // ═══ STATE ═══
 let trips = JSON.parse(localStorage.getItem('kb_trips') || '[]');
 let favorites = JSON.parse(localStorage.getItem('kb_favs') || '[]');
+let cars = JSON.parse(localStorage.getItem('kb_cars') || '[]');
+let activeCar = localStorage.getItem('kb_active_car') || '';
 let settings = JSON.parse(localStorage.getItem('kb_settings') || '{}');
 let currentDist = null;
 let currentDuration = null;
@@ -963,6 +1141,8 @@ async function revealApp(){
   // Init app after login
   updateTotalBadge();
   updateFavCountLabel();
+  renderCarPicker();
+  renderFrontFavs();
 
   // Hent kørsler fra Excel ved opstart så loggen er synkroniseret
   loadTripsFromExcel().then(ok => {
@@ -993,6 +1173,135 @@ async function revealApp(){
   const syncEl = document.getElementById('sync-status');
   if(syncEl) syncEl.textContent = odAccount ? '☁️ Logget ind som ' + (odAccount.username || settings.odAccountName) : '⚠ Ikke logget ind — SharePoint sync deaktiveret';
   updateOdUI();
+}
+
+// ═══════════════════════════════════════════════
+// ═══ HAMBURGER MENU ═══
+// ═══════════════════════════════════════════════
+function toggleMenu(){
+  document.getElementById('side-menu').classList.toggle('open');
+  document.getElementById('menu-overlay').classList.toggle('open');
+  // Opdater menu-bruger
+  const u = document.getElementById('menu-user-email');
+  if(u) u.textContent = settings.odAccountName || odAccount?.username || '–';
+}
+function closeMenu(){
+  document.getElementById('side-menu').classList.remove('open');
+  document.getElementById('menu-overlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════
+// ═══ BILER ═══
+// ═══════════════════════════════════════════════
+function saveCars(){
+  localStorage.setItem('kb_cars', JSON.stringify(cars));
+  localStorage.setItem('kb_active_car', activeCar);
+}
+
+function renderCarPicker(){
+  const sel = document.getElementById('car-picker');
+  if(!sel) return;
+  if(cars.length === 0){
+    sel.innerHTML = '<option value="">Ingen biler — tryk ＋ for at tilføje</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = cars.map(c =>
+    `<option value="${esc(c.reg)}" ${c.reg === activeCar ? 'selected' : ''}>${esc(c.name)} · ${esc(c.reg)}</option>`
+  ).join('');
+  // Hvis ingen aktiv bil, vælg første
+  if(!activeCar && cars.length > 0){
+    activeCar = cars[0].reg;
+    saveCars();
+    sel.value = activeCar;
+  }
+}
+
+function setActiveCar(reg){
+  activeCar = reg;
+  saveCars();
+  checkSaveReady();
+}
+
+function openCarManager(){
+  closeMenu();
+  renderCarList();
+  document.getElementById('car-modal').classList.add('open');
+}
+function closeCarModal(e){
+  if(!e || e.target === document.getElementById('car-modal'))
+    document.getElementById('car-modal').classList.remove('open');
+}
+function renderCarList(){
+  const list = document.getElementById('car-list');
+  if(!cars.length){
+    list.innerHTML = '<div class="empty-favs">Ingen biler tilføjet endnu.</div>';
+    return;
+  }
+  list.innerHTML = cars.map((c, i) => `
+    <div class="fav-item">
+      <span style="font-size:18px">🚗</span>
+      <div style="flex:1">
+        <div class="fav-name">${esc(c.name)}</div>
+        <div class="fav-addr">${esc(c.reg)}</div>
+      </div>
+      ${c.reg === activeCar ? '<span style="font-size:11px;color:var(--green);font-weight:700">AKTIV</span>' : ''}
+      <button class="fav-remove" onclick="removeCar(${i})">✕</button>
+    </div>
+  `).join('');
+}
+function addCar(){
+  const name = document.getElementById('car-name-input').value.trim();
+  const reg = document.getElementById('car-reg-input').value.trim().toUpperCase();
+  if(!name || !reg){ alert('Udfyld både navn og registreringsnummer'); return; }
+  if(cars.some(c => c.reg === reg)){ alert('En bil med dette registreringsnummer findes allerede'); return; }
+  cars.push({name, reg});
+  if(!activeCar) activeCar = reg;
+  saveCars();
+  document.getElementById('car-name-input').value = '';
+  document.getElementById('car-reg-input').value = '';
+  renderCarList();
+  renderCarPicker();
+}
+function removeCar(i){
+  if(!confirm('Slet denne bil?')) return;
+  const removed = cars.splice(i, 1)[0];
+  if(activeCar === removed.reg) activeCar = cars.length > 0 ? cars[0].reg : '';
+  saveCars();
+  renderCarList();
+  renderCarPicker();
+}
+
+// ═══════════════════════════════════════════════
+// ═══ FAVORITTER PÅ FORSIDEN ═══
+// ═══════════════════════════════════════════════
+function renderFrontFavs(){
+  const c = document.getElementById('front-fav-chips');
+  if(!c) return;
+  let html = favorites.slice(0, 6).map((f, i) => `
+    <button class="front-fav-chip" onclick="askFavTarget(${i})">${esc(f.name)}</button>
+  `).join('');
+  html += '<button class="front-fav-add" onclick="openFavManager(); closeMenu()">＋ Tilføj</button>';
+  c.innerHTML = html;
+}
+
+let _pickedFav = null;
+function askFavTarget(favIdx){
+  _pickedFav = favorites[favIdx];
+  document.getElementById('fav-target-name').textContent = _pickedFav.name + ' — ' + _pickedFav.address;
+  document.getElementById('fav-target-modal').classList.add('open');
+}
+function closeFavTarget(e){
+  if(!e || e.target === document.getElementById('fav-target-modal'))
+    document.getElementById('fav-target-modal').classList.remove('open');
+}
+function applyFavTarget(target){
+  if(!_pickedFav) return;
+  document.getElementById(target).value = _pickedFav.address;
+  closeFavTarget();
+  checkSaveReady();
+  checkCalcReady();
 }
 
 function showLoginScreen(){
@@ -1401,7 +1710,8 @@ async function syncTripToExcel(trip){
   const base = buildGraphBaseUrl();
   const rowUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows/add`;
   const body = { values: [[
-    trip.date,
+    trip.car || '',
+    formatDateDK(trip.date),
     trip.odoStart,
     trip.odoEnd,
     trip.km,
@@ -1442,8 +1752,8 @@ async function deleteTripFromExcel(tripId){
     if(!r.ok) return false;
     const data = await r.json();
 
-    // ID er i kolonne I (index 8)
-    const idx = (data.value || []).findIndex(row => String(row.values[0][8]) === String(tripId));
+    // ID er i kolonne J (index 9)
+    const idx = (data.value || []).findIndex(row => String(row.values[0][9]) === String(tripId));
     if(idx === -1) return false;
 
     const delUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows/itemAt(index=${idx})`;
@@ -1589,6 +1899,7 @@ function addFavorite(){
   document.getElementById('fav-name-input').value = '';
   document.getElementById('fav-addr-input').value = '';
   renderFavList();
+  renderFrontFavs();
   updateFavCountLabel();
   showToast('⭐ Favorit tilføjet', 'success');
 }
@@ -1596,6 +1907,7 @@ function removeFav(i){
   favorites.splice(i,1);
   localStorage.setItem('kb_favs', JSON.stringify(favorites));
   renderFavList();
+  renderFrontFavs();
   updateFavCountLabel();
 }
 function updateFavCountLabel(){
@@ -1752,7 +2064,8 @@ function checkSaveReady(){
   const ok = document.getElementById('from').value.trim() &&
              document.getElementById('to').value.trim() &&
              hasOdo &&
-             currentDist !== null;
+             currentDist !== null &&
+             activeCar;
   document.getElementById('save-btn').disabled = !ok;
 }
 
@@ -1767,6 +2080,7 @@ async function saveTrip(){
 
   const trip = {
     id: Date.now(),
+    car: activeCar,
     date: document.getElementById('trip-date').value,
     from: document.getElementById('from').value.trim(),
     via:  document.getElementById('via').value.trim(),
@@ -1806,7 +2120,7 @@ async function saveTrip(){
       saveTrips();
       renderLog();
       setBtn('✓ Kørsel gemt', '#16a34a');
-      setTimeout(resetBtn, 2000);
+      setTimeout(resetBtn, 1500);
     } else {
       setBtn('⚠ Sync fejlede — prøv igen', '#dc2626');
       setTimeout(resetBtn, 5000);
@@ -1838,7 +2152,7 @@ function resetForm(){
   closeVia();
   document.getElementById('dist-km').style.display = 'none';
   document.getElementById('dist-sub').style.display = 'none';
-  document.getElementById('dist-status').textContent = 'Udfyld adresser og tryk Beregn';
+  document.getElementById('dist-status').textContent = 'Tryk Beregn';
   document.getElementById('dist-status').className = 'dist-status';
   document.getElementById('dist-status').style.display = 'block';
   document.getElementById('odo-end-val').textContent = '–';
@@ -1860,7 +2174,10 @@ function renderLog(){
   c.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' + trips.map(t => `
     <div class="trip-item" id="trip-${t.id}">
       <div class="trip-header">
-        <div class="trip-date-str">${formatDate(t.date)}</div>
+        <div>
+          <div class="trip-date-str">${formatDate(t.date)}</div>
+          ${t.car ? `<div style="font-size:11px;color:var(--blue);font-weight:700;margin-top:2px">🚗 ${escHtml(t.car)}</div>` : ''}
+        </div>
         <div class="trip-km-big">${t.km.toFixed(1)}<small>km</small></div>
       </div>
       <div class="trip-route-col">
@@ -1970,6 +2287,24 @@ function exportCSV(){
 
 // ═══ HELPERS ═══
 function formatDate(d){ return new Date(d+'T12:00:00').toLocaleDateString('da-DK',{weekday:'short',day:'numeric',month:'short',year:'numeric'}); }
+function formatDateDK(d){
+  // Konverterer "2026-05-08" -> "08-05-2026"
+  if(!d) return '';
+  const parts = String(d).split('-');
+  if(parts.length === 3 && parts[0].length === 4){
+    return parts[2] + '-' + parts[1] + '-' + parts[0];
+  }
+  return d;
+}
+function parseDateDK(d){
+  // Konverterer "08-05-2026" -> "2026-05-08"
+  if(!d) return '';
+  const parts = String(d).split('-');
+  if(parts.length === 3 && parts[2].length === 4){
+    return parts[2] + '-' + parts[1] + '-' + parts[0];
+  }
+  return d;
+}
 function formatMonth(m){ return new Date(m+'-15T12:00:00').toLocaleDateString('da-DK',{month:'long',year:'numeric'}); }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function saveTrips(){ localStorage.setItem('kb_trips', JSON.stringify(trips)); }
@@ -1999,21 +2334,21 @@ async function loadTripsFromExcel(){
     if(!r.ok) return false;
     const data = await r.json();
 
-    // Konverter Excel-rækker til trip-objekter
-    // Kolonnerækkefølge: Dato, Km-tæller start, Km-tæller slut, Antal km,
+    // Kolonnerækkefølge: Reg.nr, Dato, Km-tæller start, Km-tæller slut, Antal km,
     //                    Startadr., Via, Slutadr., Formål, ID
     const fromExcel = (data.value || []).map(row => {
       const v = row.values[0];
       return {
-        id: parseInt(v[8]) || Date.now(),
-        date: String(v[0] || ''),
-        odoStart: parseInt(v[1]) || 0,
-        odoEnd: parseInt(v[2]) || 0,
-        km: parseFloat(v[3]) || 0,
-        from: String(v[4] || ''),
-        via: String(v[5] || ''),
-        to: String(v[6] || ''),
-        purpose: String(v[7] || ''),
+        id: parseInt(v[9]) || Date.now(),
+        car: String(v[0] || ''),
+        date: parseDateDK(String(v[1] || '')),
+        odoStart: parseInt(v[2]) || 0,
+        odoEnd: parseInt(v[3]) || 0,
+        km: parseFloat(v[4]) || 0,
+        from: String(v[5] || ''),
+        via: String(v[6] || ''),
+        to: String(v[7] || ''),
+        purpose: String(v[8] || ''),
         synced: true
       };
     }).filter(t => t.date && t.from && t.to);
@@ -2053,8 +2388,10 @@ async function loadTripsFromExcel(){
 function switchTab(name){
   ['new','log','stats','settings'].forEach(n=>{
     document.getElementById('view-'+n).classList.toggle('active', n===name);
-    document.getElementById('nav-'+n).classList.toggle('active', n===name);
+    const m = document.getElementById('menu-'+n);
+    if(m) m.classList.toggle('active', n===name);
   });
+  closeMenu();
   if(name==='log'){
     renderLog();
     showLogSyncIndicator(true);

@@ -1568,13 +1568,30 @@ async function testWriteToExcel(){
   el.style.display = 'block';
   el.style.background = 'var(--surface2)';
   el.style.color = 'var(--text2)';
-  el.textContent = 'Skriver testrad...';
+  el.textContent = 'Tester synkronisering...';
 
   try {
     if(!SP_CONFIG){ throw new Error('App ikke konfigureret — vælg en Excel-fil først'); }
     _spFileCache = null;
+
+    // 1. Læs eksisterende rækker
+    const token = await getGraphToken();
+    if(!token) throw new Error('Ingen token');
+    await spFindFile(token);
+    const base = buildGraphBaseUrl();
+    const r = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if(!r.ok) throw new Error('Kunne ikke læse rækker');
+    const data = await r.json();
+    const rowCount = (data.value || []).length;
+
+    el.textContent = `📊 Excel-fil: ${SP_CONFIG.fileName}\n📍 Lokation: ${SP_CONFIG.siteName || 'OneDrive'}\n📋 Antal rækker i Excel: ${rowCount}\n💾 Antal kørsler lokalt: ${trips.length}`;
+
+    // 2. Skriv testrad
     const testTrip = {
       id: 'TEST-' + Date.now(),
+      car: activeCar || 'TEST',
       date: new Date().toISOString().split('T')[0],
       from: 'TEST Startadresse',
       via: '',
@@ -1585,7 +1602,7 @@ async function testWriteToExcel(){
       purpose: 'TEST RÆKKE — kan slettes manuelt'
     };
     await syncTripToExcel(testTrip);
-    el.textContent = '✓ Testrad skrevet til Excel!\nÅbn dit ark og slet rækken manuelt.';
+    el.textContent += '\n\n✓ Testrad skrevet til Excel!\n\nÅbn Log-fanen for at hente seneste kørsler.';
     el.style.background = 'var(--green-light)';
     el.style.color = 'var(--green)';
   } catch(e){

@@ -1235,14 +1235,38 @@ async function revealApp(){
   ['from','to'].forEach(id => {
     document.getElementById(id).addEventListener('input', checkCalcReady);
   });
+  // Auto-beregn ruten når brugeren holder pause med at skrive
   ['from','via','to'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       clearTimeout(debounceTimers['autoCalc']);
       debounceTimers['autoCalc'] = setTimeout(() => {
         const f = document.getElementById('from').value.trim();
         const t = document.getElementById('to').value.trim();
-        if(f.length > 5 && t.length > 5) calcRoute();
-      }, 1800);
+        const v = document.getElementById('via').value.trim();
+        // Kør kun hvis adresserne ser komplette ud (har tal/komma — typisk for danske adresser)
+        const looksComplete = (s) => s.length >= 8 && /\d/.test(s);
+        if(looksComplete(f) && looksComplete(t)){
+          const cacheKey = f + '||' + v + '||' + t;
+          if(_lastCalcKey !== cacheKey || currentDist === null){
+            calcRoute();
+          }
+        }
+      }, 1500);
+    });
+  });
+  // Trigger også blur (når brugeren skifter felt) for hurtigere respons
+  ['from','via','to'].forEach(id => {
+    document.getElementById(id).addEventListener('blur', () => {
+      const f = document.getElementById('from').value.trim();
+      const t = document.getElementById('to').value.trim();
+      const v = document.getElementById('via').value.trim();
+      if(f.length >= 5 && t.length >= 5){
+        const cacheKey = f + '||' + v + '||' + t;
+        if(_lastCalcKey !== cacheKey || currentDist === null){
+          clearTimeout(debounceTimers['autoCalc']);
+          calcRoute();
+        }
+      }
     });
   });
   document.getElementById('odo-start').addEventListener('input', () => updateOdoFields('start'));

@@ -1833,7 +1833,7 @@ async function syncTripToExcel(trip){
   const rowUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows/add`;
   const body = { values: [[
     trip.car || '',
-    formatDateDK(trip.date),
+    trip.date,
     trip.odoStart,
     trip.odoEnd,
     trip.km,

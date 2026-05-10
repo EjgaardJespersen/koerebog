@@ -773,18 +773,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       </div>
     </div>
 
-    <!-- Favoritter -->
-    <div class="settings-section">
-      <div class="settings-row">
-        <div class="settings-icon blue">⭐</div>
-        <div class="settings-info">
-          <div class="settings-label">Favoritadresser</div>
-          <div class="settings-sub" id="fav-count-label">0 gemt</div>
-        </div>
-        <button class="settings-action" onclick="openFavManager()">Administrer</button>
-      </div>
-    </div>
-
     <!-- Export -->
     <div class="card">
       <div class="card-title">📤 Eksport</div>
@@ -967,6 +955,49 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="btn-row" style="margin-top:12px">
         <button class="btn-secondary" onclick="closeEditTrip()">Annuller</button>
         <button class="btn-primary-sm" onclick="saveEditTrip()">💾 Gem ændringer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT CAR MODAL -->
+<div class="modal-overlay" id="edit-car-modal" onclick="closeEditCar(event)">
+  <div class="modal-sheet" onclick="e=>e.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✎ Rediger bil</div>
+    <div class="fav-add-form" style="margin-top:12px">
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Navn</label>
+      <input id="edit-car-name" type="text" placeholder="Fx. Firmabil, Privatbil">
+
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Registreringsnummer</label>
+      <input id="edit-car-reg" type="text" placeholder="Fx. AU 20 893" style="text-transform:uppercase" oninput="formatRegInput(this)" maxlength="10">
+
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn-secondary" onclick="closeEditCar()">Annuller</button>
+        <button class="btn-primary-sm" onclick="saveEditCar()">💾 Gem ændringer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT FAVORITE MODAL -->
+<div class="modal-overlay" id="edit-fav-modal" onclick="closeEditFav(event)">
+  <div class="modal-sheet" onclick="e=>e.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✎ Rediger favoritadresse</div>
+    <div class="fav-add-form" style="margin-top:12px">
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Navn</label>
+      <input id="edit-fav-name" type="text" placeholder="Fx. Kontor, Hjem">
+
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Adresse</label>
+      <div class="addr-wrap" style="position:relative">
+        <input id="edit-fav-addr" type="text" placeholder="Fx. Vesterbrogade 10, København" autocomplete="off">
+        <div class="suggestions" id="sug-edit-fav-addr"></div>
+      </div>
+
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn-secondary" onclick="closeEditFav()">Annuller</button>
+        <button class="btn-primary-sm" onclick="saveEditFav()">💾 Gem ændringer</button>
       </div>
     </div>
   </div>
@@ -1422,31 +1453,39 @@ function renderCarList(){
   `).join('');
 }
 
+let _editingCarIdx = null;
 function editCar(i){
   const c = cars[i];
   if(!c) return;
-  const newName = prompt('Bilens navn:', c.name);
-  if(newName === null) return;
-  const newReg = prompt('Registreringsnummer:', c.reg);
-  if(newReg === null) return;
-
-  const trimmedName = newName.trim();
-  const trimmedReg = newReg.trim().toUpperCase();
-  if(!trimmedName || !trimmedReg){ alert('Navn og reg.nr må ikke være tomme'); return; }
-
-  // Tjek for dubletter (men tillad samme reg som den vi redigerer)
-  if(cars.some((other, idx) => idx !== i && other.reg === trimmedReg)){
+  _editingCarIdx = i;
+  document.getElementById('edit-car-name').value = c.name;
+  document.getElementById('edit-car-reg').value = c.reg;
+  document.getElementById('edit-car-modal').classList.add('open');
+}
+function closeEditCar(e){
+  if(!e || e.target === document.getElementById('edit-car-modal')){
+    document.getElementById('edit-car-modal').classList.remove('open');
+    _editingCarIdx = null;
+  }
+}
+function saveEditCar(){
+  if(_editingCarIdx === null) return;
+  const c = cars[_editingCarIdx];
+  if(!c) return;
+  const newName = document.getElementById('edit-car-name').value.trim();
+  const newReg = document.getElementById('edit-car-reg').value.trim().toUpperCase();
+  if(!newName || !newReg){ alert('Navn og reg.nr må ikke være tomme'); return; }
+  if(cars.some((other, idx) => idx !== _editingCarIdx && other.reg === newReg)){
     alert('En anden bil bruger allerede dette reg.nr'); return;
   }
-
   const oldReg = c.reg;
-  c.name = trimmedName;
-  c.reg = trimmedReg;
-  // Hvis aktiv bil var denne, opdater
-  if(activeCar === oldReg) activeCar = trimmedReg;
+  c.name = newName;
+  c.reg = newReg;
+  if(activeCar === oldReg) activeCar = newReg;
   saveCars();
   renderCarList();
   renderCarPicker();
+  closeEditCar();
 }
 
 function selectActiveCarFromList(reg){
@@ -1863,7 +1902,7 @@ function updateOdUI(){
   const dotEl = document.getElementById('sync-dot');
   const helpEl = document.getElementById('od-help');
 
-  if(titleEl) titleEl.textContent = configured ? (SP_CONFIG.mode === 'onedrive' ? 'OneDrive / Excel' : 'SharePoint / Excel') : 'Excel-fil';
+  if(titleEl) titleEl.textContent = 'Lagring - Endpoint';
   if(logoEl) logoEl.textContent = configured ? (SP_CONFIG.mode === 'onedrive' ? '☁️' : '🌐') : '📊';
   if(statusEl){
     if(!configured){
@@ -1996,19 +2035,23 @@ async function updateTotalKmRow(){
     // Position af sumrækken: header=1, data=2..N+1, sum=N+2
     const sumRowNum = rows.length + 2;
 
-    // Først ryd op til 15 rækker under tabellen (så gamle summer fjernes ved sletning)
-    const clearStart = 2;
-    const clearEnd = rows.length + 16;
-    for(let row = clearStart + rows.length; row <= clearEnd; row++){
-      // Spring sumrækken over — den skal vi skrive til
+    // Ryd kolonne D-E i op til 30 rækker udenfor tabellen
+    // (i tilfælde af gamle "I alt"-rækker fra før, eller efter sletning)
+    // Vi rydder fra første ikke-data-række og frem
+    const firstNonDataRow = rows.length + 2;
+    const clearPromises = [];
+    for(let row = firstNonDataRow; row <= firstNonDataRow + 29; row++){
       if(row === sumRowNum) continue;
       const range = `D${row}:E${row}`;
-      await fetch(`${base}/workbook/worksheets('${encodeURIComponent(sheetName)}')/range(address='${range}')`, {
-        method: 'PATCH',
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: [['', '']] })
-      }).catch(() => {});
+      clearPromises.push(
+        fetch(`${base}/workbook/worksheets('${encodeURIComponent(sheetName)}')/range(address='${range}')`, {
+          method: 'PATCH',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [['', '']] })
+        }).catch(() => {})
+      );
     }
+    await Promise.all(clearPromises);
 
     // Skriv "I alt:" i D og selve summen i E
     const sumRange = `D${sumRowNum}:E${sumRowNum}`;
@@ -2279,21 +2322,39 @@ function moveFav(idx, dir){
   renderFrontFavs();
 }
 
+let _editingFavIdx = null;
+let _editFavAutocompleteSetup = false;
 function editFav(i){
   const f = favorites[i];
   if(!f) return;
-  const newName = prompt('Navn:', f.name);
-  if(newName === null) return;
-  const newAddr = prompt('Adresse:', f.address);
-  if(newAddr === null) return;
-  const tn = newName.trim();
-  const ta = newAddr.trim();
-  if(!tn || !ta){ alert('Navn og adresse må ikke være tomme'); return; }
-  f.name = tn;
-  f.address = ta;
+  _editingFavIdx = i;
+  document.getElementById('edit-fav-name').value = f.name;
+  document.getElementById('edit-fav-addr').value = f.address;
+  document.getElementById('edit-fav-modal').classList.add('open');
+  if(!_editFavAutocompleteSetup){
+    setupAutocomplete('edit-fav-addr');
+    _editFavAutocompleteSetup = true;
+  }
+}
+function closeEditFav(e){
+  if(!e || e.target === document.getElementById('edit-fav-modal')){
+    document.getElementById('edit-fav-modal').classList.remove('open');
+    _editingFavIdx = null;
+  }
+}
+function saveEditFav(){
+  if(_editingFavIdx === null) return;
+  const f = favorites[_editingFavIdx];
+  if(!f) return;
+  const newName = document.getElementById('edit-fav-name').value.trim();
+  const newAddr = document.getElementById('edit-fav-addr').value.trim();
+  if(!newName || !newAddr){ alert('Navn og adresse må ikke være tomme'); return; }
+  f.name = newName;
+  f.address = newAddr;
   saveFavs();
   renderFavList();
   renderFrontFavs();
+  closeEditFav();
 }
 
 // ═══ DRAG & DROP for favoritter ═══

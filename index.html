@@ -975,11 +975,19 @@ async function saveConfigToCloud(){
   try {
     const token = await getGraphToken();
     if(!token) return;
+    // Saml alt der skal synkroniseres på tværs af enheder
+    const cloudData = {
+      sp: SP_CONFIG,
+      favorites: favorites,
+      cars: cars,
+      activeCar: activeCar,
+      _updated: Date.now()
+    };
     // PUT opretter automatisk mappen hvis den ikke findes
     await fetch(buildConfigUrl(':/content'), {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(SP_CONFIG)
+      body: JSON.stringify(cloudData)
     });
   } catch(e){ console.warn('saveConfigToCloud:', e); }
 }
@@ -991,8 +999,13 @@ async function loadConfigFromCloud(){
     if(!token) return null;
     const r = await fetch(buildConfigUrl(':/content'), { headers: { Authorization: 'Bearer ' + token } });
     if(!r.ok) return null;
-    const cfg = await r.json();
-    return cfg;
+    const data = await r.json();
+
+    // Bagudkompatibilitet: hvis filen er det gamle format (kun SP_CONFIG)
+    if(data.fileId && !data.sp){
+      return { sp: data };
+    }
+    return data;
   } catch(e){ console.warn('loadConfigFromCloud:', e); return null; }
 }
 
@@ -1008,7 +1021,63 @@ async function loadConfigFromCloud(){
   const now = new Date();
   document.getElementById('top-date').textContent = now.toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('trip-date').value = now.toISOString().split('T')[0];
+
+  // Auto-refresh ved fokus på vinduet og når fanen bliver synlig igen
+  let lastRefresh = Date.now();
+  const refreshIfNeeded = async () => {
+    if(!odAccount || !SP_CONFIG) return;
+    // Kun hvis der er gået mindst 5 sekunder
+    if(Date.now() - lastRefresh < 5000) return;
+    lastRefresh = Date.now();
+    await refreshCloudData();
+  };
+  window.addEventListener('focus', refreshIfNeeded);
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') refreshIfNeeded();
+  });
+
+  // Periodisk poll hver 30 sekunder mens appen er aktiv
+  setInterval(() => {
+    if(document.visibilityState === 'visible') refreshIfNeeded();
+  }, 30000);
 })();
+
+async function refreshCloudData(){
+  // Genindlæser config (favoritter, biler) og kørsler fra cloud
+  try {
+    const cloudCfg = await loadConfigFromCloud();
+    if(cloudCfg){
+      let changed = false;
+      if(cloudCfg.favorites && JSON.stringify(cloudCfg.favorites) !== JSON.stringify(favorites)){
+        favorites = cloudCfg.favorites;
+        localStorage.setItem('kb_favs', JSON.stringify(favorites));
+        changed = true;
+      }
+      if(cloudCfg.cars && JSON.stringify(cloudCfg.cars) !== JSON.stringify(cars)){
+        cars = cloudCfg.cars;
+        localStorage.setItem('kb_cars', JSON.stringify(cars));
+        changed = true;
+      }
+      if(cloudCfg.activeCar && cloudCfg.activeCar !== activeCar){
+        activeCar = cloudCfg.activeCar;
+        localStorage.setItem('kb_active_car', activeCar);
+        changed = true;
+      }
+      if(changed){
+        renderCarPicker();
+        renderFrontFavs();
+        updateFavCountLabel();
+        if(document.getElementById('car-modal').classList.contains('open')) renderCarList();
+        if(document.getElementById('fav-modal').classList.contains('open')) renderFavList();
+      }
+    }
+    // Hent også kørsler hvis loggen er åben
+    if(document.getElementById('view-log').classList.contains('active')){
+      const ok = await loadTripsFromExcel();
+      if(ok){ renderLog(); updateTotalBadge(); }
+    }
+  } catch(e){ console.warn('refreshCloudData:', e); }
+}
 
 // ═══ MSAL / LOGIN ═══
 async function initMsal(){
@@ -1113,16 +1182,29 @@ function doLogout(){
 async function revealApp(){
   document.getElementById('login-screen').style.display = 'none';
 
-  // Hvis ingen lokal config, prøv at hente fra cloud
-  if(!SP_CONFIG){
-    const cloudCfg = await loadConfigFromCloud();
-    if(cloudCfg){
-      SP_CONFIG = cloudCfg;
+  // Hent altid cloud-config — den indeholder favoritter, biler og SP-konfig
+  const cloudCfg = await loadConfigFromCloud();
+  if(cloudCfg){
+    // Brug cloud-data hvis det er nyere eller hvis vi ikke har lokale data
+    if(cloudCfg.sp){
+      SP_CONFIG = cloudCfg.sp;
       localStorage.setItem('kb_sp_config', JSON.stringify(SP_CONFIG));
+    }
+    if(cloudCfg.favorites){
+      favorites = cloudCfg.favorites;
+      localStorage.setItem('kb_favs', JSON.stringify(favorites));
+    }
+    if(cloudCfg.cars){
+      cars = cloudCfg.cars;
+      localStorage.setItem('kb_cars', JSON.stringify(cars));
+    }
+    if(cloudCfg.activeCar){
+      activeCar = cloudCfg.activeCar;
+      localStorage.setItem('kb_active_car', activeCar);
     }
   }
 
-  // Hvis stadig ingen config, vis setup
+  // Hvis stadig ingen SP-config, vis setup
   if(!SP_CONFIG){
     showSetupScreen();
     return;
@@ -1194,6 +1276,12 @@ function closeMenu(){
 function saveCars(){
   localStorage.setItem('kb_cars', JSON.stringify(cars));
   localStorage.setItem('kb_active_car', activeCar);
+  saveConfigToCloud().catch(e => console.warn('Cloud save:', e));
+}
+
+function saveFavs(){
+  localStorage.setItem('kb_favs', JSON.stringify(favorites));
+  saveConfigToCloud().catch(e => console.warn('Cloud save:', e));
 }
 
 function updateActiveCarLabel(){
@@ -1781,19 +1869,31 @@ async function deleteTripFromExcel(tripId){
 
     const rowsUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows`;
     const r = await fetch(rowsUrl, { headers: { Authorization: 'Bearer ' + token } });
-    if(!r.ok) return false;
+    if(!r.ok){ console.warn('Læs rækker fejl:', r.status); return false; }
     const data = await r.json();
 
     // ID er i kolonne J (index 9)
-    const idx = (data.value || []).findIndex(row => String(row.values[0][9]) === String(tripId));
-    if(idx === -1) return false;
+    const targetId = String(tripId).trim();
+    const idx = (data.value || []).findIndex(row => {
+      const rowId = row.values && row.values[0] ? String(row.values[0][9]).trim() : '';
+      return rowId === targetId;
+    });
+
+    if(idx === -1){
+      console.warn('Trip ID ikke fundet i Excel:', tripId, 'Tjekkede rækker:', (data.value||[]).length);
+      return false;
+    }
 
     const delUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows/itemAt(index=${idx})`;
     const delRes = await fetch(delUrl, {
       method: 'DELETE',
       headers: { Authorization: 'Bearer ' + token }
     });
-    return delRes.ok;
+    if(!delRes.ok){
+      console.warn('Slet HTTP-fejl:', delRes.status, await delRes.text());
+      return false;
+    }
+    return true;
   } catch(e){
     console.warn('Delete error:', e);
     return false;
@@ -1932,7 +2032,7 @@ function addFavorite(){
   const addr = document.getElementById('fav-addr-input').value.trim();
   if(!name || !addr){ showToast('Udfyld navn og adresse', 'error'); return; }
   favorites.push({name, address: addr});
-  localStorage.setItem('kb_favs', JSON.stringify(favorites));
+  saveFavs();
   document.getElementById('fav-name-input').value = '';
   document.getElementById('fav-addr-input').value = '';
   renderFavList();
@@ -1942,7 +2042,7 @@ function addFavorite(){
 }
 function removeFav(i){
   favorites.splice(i,1);
-  localStorage.setItem('kb_favs', JSON.stringify(favorites));
+  saveFavs();
   renderFavList();
   renderFrontFavs();
   updateFavCountLabel();
@@ -2136,8 +2236,13 @@ async function saveTrip(){
   const btn = document.getElementById('save-btn');
   const setBtn = (txt, color) => { if(btn){ btn.textContent = txt; btn.style.background = color; btn.disabled = true; } };
   const resetBtn = () => {
+    if(btn){
+      btn.textContent = 'Gem kørsel';
+      btn.style.background = '';
+      btn.disabled = false;
+    }
     resetForm();
-    if(btn){ btn.textContent = 'Gem kørsel'; btn.style.background = ''; checkSaveReady(); }
+    checkSaveReady();
   };
 
   // SharePoint sync (hvis logget ind og konfigureret)
@@ -2251,18 +2356,23 @@ async function deleteTrip(id){
       const ok = await deleteTripFromExcel(id);
       if(!ok){
         if(card){ card.style.opacity = '1'; card.style.pointerEvents = ''; }
-        alert('⚠ Kunne ikke slette fra Excel — kørslen blev ikke slettet.\n\nTjek at Excel-filen stadig findes og at du er logget ind.');
-        return;
+        if(!confirm('⚠ Kunne ikke slette fra Excel.\n\nVil du slette kørslen lokalt alligevel?')){
+          return;
+        }
       }
     } catch(e){
       if(card){ card.style.opacity = '1'; card.style.pointerEvents = ''; }
-      alert('⚠ Sletning fejlede: ' + e.message);
-      return;
+      if(!confirm('⚠ Sletning fra Excel fejlede: ' + e.message + '\n\nVil du slette kørslen lokalt alligevel?')){
+        return;
+      }
     }
   }
 
   trips = trips.filter(t => t.id !== id);
-  saveTrips(); renderLog(); renderStats(); updateTotalBadge();
+  saveTrips();
+  renderLog();
+  renderStats();
+  updateTotalBadge();
 }
 
 // ═══ STATS ═══
@@ -2322,7 +2432,12 @@ function exportCSV(){
 }
 
 // ═══ HELPERS ═══
-function formatDate(d){ return new Date(d+'T12:00:00').toLocaleDateString('da-DK',{weekday:'short',day:'numeric',month:'short',year:'numeric'}); }
+function formatDate(d){
+  if(!d) return '–';
+  const dt = new Date(d+'T12:00:00');
+  if(isNaN(dt.getTime())) return String(d);
+  return dt.toLocaleDateString('da-DK',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+}
 function formatDateDK(d){
   // Konverterer "2026-05-08" -> "08-05-2026"
   if(!d) return '';
@@ -2333,13 +2448,38 @@ function formatDateDK(d){
   return d;
 }
 function parseDateDK(d){
-  // Konverterer "08-05-2026" -> "2026-05-08"
+  // Konverterer "08-05-2026" -> "2026-05-08", eller Excel serielt tal -> ISO-dato
   if(!d) return '';
-  const parts = String(d).split('-');
-  if(parts.length === 3 && parts[2].length === 4){
-    return parts[2] + '-' + parts[1] + '-' + parts[0];
+
+  // Hvis det er et tal (Excel-dato som serielt tal: dage siden 1900-01-01)
+  const num = Number(d);
+  if(!isNaN(num) && num > 0 && num < 100000){
+    // Excel-dato til JS Date (Excel har en fejl: 1900 antages skudår, derfor -2)
+    const ms = (num - 25569) * 86400 * 1000;
+    const dt = new Date(ms);
+    if(!isNaN(dt.getTime())){
+      return dt.toISOString().split('T')[0];
+    }
   }
-  return d;
+
+  const s = String(d).trim();
+
+  // ISO-format "2026-05-08"
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+    return s.split('T')[0].slice(0, 10);
+  }
+
+  // DD-MM-YYYY format
+  const parts = s.split(/[-\/.]/);
+  if(parts.length === 3){
+    if(parts[2].length === 4){
+      return parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
+    }
+    if(parts[0].length === 4){
+      return parts[0] + '-' + parts[1].padStart(2,'0') + '-' + parts[2].padStart(2,'0');
+    }
+  }
+  return s;
 }
 function formatMonth(m){ return new Date(m+'-15T12:00:00').toLocaleDateString('da-DK',{month:'long',year:'numeric'}); }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -2374,8 +2514,10 @@ async function loadTripsFromExcel(){
     //                    Startadr., Via, Slutadr., Formål, ID
     const fromExcel = (data.value || []).map(row => {
       const v = row.values[0];
+      const rawId = String(v[9] || '').trim();
+      const numId = parseInt(rawId);
       return {
-        id: parseInt(v[9]) || Date.now(),
+        id: !isNaN(numId) && String(numId) === rawId ? numId : (rawId || Date.now()),
         car: String(v[0] || ''),
         date: parseDateDK(String(v[1] || '')),
         odoStart: parseInt(v[2]) || 0,

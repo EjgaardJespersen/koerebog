@@ -580,28 +580,25 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="setup-item" onclick="pickStorage('sharepoint')">
           <div class="setup-item-icon">🌐</div>
           <div class="setup-item-text">
-            <div class="setup-item-name">SharePoint</div>
-            <div class="setup-item-sub">Til delte teamfiler i en M365-tenant</div>
+            <div class="setup-item-name">SharePoint / Teams</div>
           </div>
         </div>
         <div class="setup-item" onclick="pickStorage('onedrive')">
           <div class="setup-item-icon">☁️</div>
           <div class="setup-item-text">
             <div class="setup-item-name">OneDrive</div>
-            <div class="setup-item-sub">Til personlige filer i din OneDrive</div>
           </div>
         </div>
       </div>
       <div class="setup-help">
-        <strong>📥 Har du ikke en kørebog-fil?</strong><br>
-        Download skabelonen, gem den i SharePoint eller OneDrive, og vælg den derefter her.<br>
+        <strong>📥 Download kørebogsskabelon og upload den i SharePoint / Teams eller dit OneDrive.</strong>
         <button onclick="downloadExcelTemplate()" style="margin-top:8px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none">⬇️ Download Excel-skabelon</button>
       </div>
     </div>
 
     <!-- Step 1: Vælg site (kun SharePoint) -->
     <div class="setup-step" id="setup-step-site" style="display:none">
-      <div class="setup-step-label"><span class="setup-step-num">2</span> Vælg SharePoint-site</div>
+      <div class="setup-step-label"><span class="setup-step-num">2</span> Vælg SharePoint-site eller Teams</div>
       <button onclick="loadStorageOptions()" style="background:none;border:none;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;padding:2px 0;margin-bottom:8px;font-weight:600">← Skift lagring</button>
       <input class="setup-search-input" id="site-search" placeholder="Søg efter site..." autocomplete="off" oninput="renderSites(this.value)">
       <div class="setup-list" id="site-list">
@@ -2657,6 +2654,12 @@ async function loadTripsFromExcel(){
 }
 
 function switchTab(name){
+  // Hvis brugeren trykker Hjem fra menuen, lav et komplet refresh
+  if(name === 'new' && document.getElementById('side-menu').classList.contains('open')){
+    closeMenu();
+    location.reload();
+    return;
+  }
   ['new','log','stats','settings'].forEach(n=>{
     document.getElementById('view-'+n).classList.toggle('active', n===name);
     const m = document.getElementById('menu-'+n);
@@ -2679,7 +2682,6 @@ function switchTab(name){
   }
   if(name==='settings') updateOdUI();
   if(name==='new'){
-    // Sync også på hjemskærmen, så km-badge er korrekt
     loadTripsFromExcel().then(ok => {
       if(ok) updateTotalBadge();
     });

@@ -918,7 +918,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="fav-list" id="car-list"></div>
     <div class="fav-add-form">
       <input id="car-name-input" type="text" placeholder="Navn (fx. Firmabil, Privatbil)">
-      <input id="car-reg-input" type="text" placeholder="Registreringsnummer (fx. AB12345)" style="text-transform:uppercase">
+      <input id="car-reg-input" type="text" placeholder="Registreringsnummer (fx. AU 20 893)" style="text-transform:uppercase" oninput="formatRegInput(this)" maxlength="10">
       <div class="btn-row">
         <button class="btn-secondary" onclick="closeCarModal()">Luk</button>
         <button class="btn-primary-sm" onclick="addCar()">＋ Tilføj bil</button>
@@ -1356,6 +1356,33 @@ function selectActiveCarFromList(reg){
   setActiveCar(reg);
   renderCarList();
 }
+function formatRegInput(input){
+  // Formatér til "AU 20 893" — to bogstaver, mellemrum, to tal, mellemrum, resten
+  const cursorPos = input.selectionStart;
+  const oldVal = input.value;
+  // Fjern alt der ikke er bogstaver eller tal
+  let raw = oldVal.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if(raw.length > 7) raw = raw.slice(0, 7);
+
+  let formatted = '';
+  if(raw.length <= 2){
+    formatted = raw;
+  } else if(raw.length <= 4){
+    formatted = raw.slice(0, 2) + ' ' + raw.slice(2);
+  } else {
+    formatted = raw.slice(0, 2) + ' ' + raw.slice(2, 4) + ' ' + raw.slice(4);
+  }
+
+  input.value = formatted;
+
+  // Bevar markørposition cirka korrekt
+  const addedSpaces = formatted.length - raw.length;
+  const oldSpaces = (oldVal.slice(0, cursorPos).match(/ /g) || []).length;
+  const newSpaces = (formatted.slice(0, cursorPos + (addedSpaces - oldSpaces)).match(/ /g) || []).length;
+  const newPos = cursorPos + (newSpaces - oldSpaces);
+  input.setSelectionRange(newPos, newPos);
+}
+
 function addCar(){
   const name = document.getElementById('car-name-input').value.trim();
   const reg = document.getElementById('car-reg-input').value.trim().toUpperCase();

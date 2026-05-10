@@ -2087,7 +2087,77 @@ async function updateTotalKmRow(){
   }
 }
 
+async function rebuildExcelTable(){
+  // Bygger hele Excel-tabellen op fra trips-arrayet, sorteret efter dato (nyeste først)
+  if(!odAccount || !SP_CONFIG) throw new Error('Ikke konfigureret');
+  const token = await getGraphToken();
+  if(!token) throw new Error('Kan ikke hente adgangstoken');
+  await spFindFile(token);
+  const base = buildGraphBaseUrl();
+
+  // 1. Hent eksisterende rækker
+  const r = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows`, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if(!r.ok) throw new Error('Læs rækker ' + r.status);
+  const data = await r.json();
+  const existingRows = data.value || [];
+
+  // 2. Slet alle eksisterende rækker (bagfra for at undgå index-skift)
+  for(let i = existingRows.length - 1; i >= 0; i--){
+    const delRes = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows/itemAt(index=${i})`, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if(!delRes.ok) throw new Error('Slet ' + delRes.status);
+  }
+
+  // 3. Sortér trips kronologisk (ældste først så nyeste ender øverst i Excel når vi indsætter)
+  // Vi vil have nyeste øverst i Excel, så vi indsætter ældste først, eller bruger index=0 hver gang
+  const sortedTrips = [...trips].sort((a, b) => {
+    if(a.date !== b.date) return a.date.localeCompare(b.date);
+    return a.id - b.id;
+  });
+
+  // 4. Indsæt rækker — vi indsætter ældste først, så nyeste ender øverst
+  // Faktisk er det nemmere at indsætte alle på én gang
+  if(sortedTrips.length > 0){
+    const allValues = sortedTrips.map(trip => [
+      trip.car || '',
+      dateToExcelSerial(trip.date),
+      trip.odoStart,
+      trip.odoEnd,
+      trip.km,
+      trip.from,
+      trip.via || '',
+      trip.to,
+      trip.purpose || '',
+      String(trip.id)
+    ]);
+
+    const addRes = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows/add`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: allValues })
+    });
+    if(!addRes.ok){
+      const txt = await addRes.text();
+      throw new Error('Tilføj ' + addRes.status + ': ' + txt.slice(0,100));
+    }
+  }
+
+  // 5. Opdater sumrækken
+  await updateTotalKmRow();
+
+  return true;
+}
+
 async function syncTripToExcel(trip){
+  // Brug rebuildExcelTable så data altid er sorteret efter dato
+  return await rebuildExcelTable();
+}
+
+async function syncSingleTripToExcel(trip){
   if(!odAccount) throw new Error('Ikke logget ind');
   if(!SP_CONFIG) throw new Error('App ikke konfigureret');
   const token = await getGraphToken();
@@ -2832,13 +2902,10 @@ async function saveEditTrip(){
 
   closeEditTrip();
 
-  // Opdater Excel hvis kørslen er synkroniseret: slet gammel række og indsæt ny
+  // Genopbyg hele Excel-tabellen sorteret efter dato
   if(wasSynced && odAccount && SP_CONFIG){
     try {
-      await deleteTripFromExcel(editId);
-      await syncTripToExcel(trip);
-      // Opdater summen efter en vellykket redigering
-      await updateTotalKmRow();
+      await rebuildExcelTable();
     } catch(e){
       alert('⚠ Kunne ikke opdatere Excel: ' + e.message + '\n\nÆndringen er gemt lokalt.');
     }
@@ -3017,13 +3084,19 @@ async function loadTripsFromExcel(){
 
     // Kolonnerækkefølge: Reg.nr, Dato, Km-tæller start, Km-tæller slut, Antal km,
     //                    Startadr., Via, Slutadr., Formål, ID
+    // Kolonnerækkefølge: Reg.nr, Dato, Km-tæller start, Km-tæller slut, Antal km,
+    //                    Startadr., Via, Slutadr., Formål, ID
     const fromExcel = (data.value || []).map(row => {
       const v = row.values[0];
       const rawId = String(v[9] || '').trim();
       const numId = parseInt(rawId);
+      // Filtrer "I alt"-rækker fra (har "I alt:" som reg.nr/km-tæller)
+      const c0 = String(v[0] || '').trim();
+      const c2 = String(v[2] || '').trim();
+      if(c0 === 'I alt:' || c2 === 'I alt:' || c0.toLowerCase().includes('i alt')) return null;
       return {
         id: !isNaN(numId) && String(numId) === rawId ? numId : (rawId || Date.now()),
-        car: String(v[0] || ''),
+        car: c0,
         date: parseDateDK(String(v[1] || '')),
         odoStart: parseInt(v[2]) || 0,
         odoEnd: parseInt(v[3]) || 0,
@@ -3034,7 +3107,7 @@ async function loadTripsFromExcel(){
         purpose: String(v[8] || ''),
         synced: true
       };
-    }).filter(t => t.date && t.from && t.to);
+    }).filter(t => t && t.date && t.from && t.to && t.id);
 
     // Bevarer lokale kørsler der endnu ikke er synkroniseret (fx gemt offline)
     const unsyncedLocal = trips.filter(t => !t.synced);

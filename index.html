@@ -926,13 +926,22 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <input id="edit-date" type="date">
 
       <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Startadresse</label>
-      <input id="edit-from" type="text" placeholder="Startadresse">
+      <div class="addr-wrap" style="position:relative">
+        <input id="edit-from" type="text" placeholder="Startadresse" autocomplete="off">
+        <div class="suggestions" id="sug-edit-from"></div>
+      </div>
 
       <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Via (valgfri)</label>
-      <input id="edit-via" type="text" placeholder="Via-adresse">
+      <div class="addr-wrap" style="position:relative">
+        <input id="edit-via" type="text" placeholder="Via-adresse" autocomplete="off">
+        <div class="suggestions" id="sug-edit-via"></div>
+      </div>
 
       <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Slutadresse</label>
-      <input id="edit-to" type="text" placeholder="Slutadresse">
+      <div class="addr-wrap" style="position:relative">
+        <input id="edit-to" type="text" placeholder="Slutadresse" autocomplete="off">
+        <div class="suggestions" id="sug-edit-to"></div>
+      </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
         <div>
@@ -2087,85 +2096,15 @@ async function updateTotalKmRow(){
   }
 }
 
-async function rebuildExcelTable(){
-  // Bygger hele Excel-tabellen op fra trips-arrayet, sorteret efter dato (nyeste først)
-  if(!odAccount || !SP_CONFIG) throw new Error('Ikke konfigureret');
-  const token = await getGraphToken();
-  if(!token) throw new Error('Kan ikke hente adgangstoken');
-  await spFindFile(token);
-  const base = buildGraphBaseUrl();
-
-  // 1. Hent eksisterende rækker
-  const r = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows`, {
-    headers: { Authorization: 'Bearer ' + token }
-  });
-  if(!r.ok) throw new Error('Læs rækker ' + r.status);
-  const data = await r.json();
-  const existingRows = data.value || [];
-
-  // 2. Slet alle eksisterende rækker (bagfra for at undgå index-skift)
-  for(let i = existingRows.length - 1; i >= 0; i--){
-    const delRes = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows/itemAt(index=${i})`, {
-      method: 'DELETE',
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    if(!delRes.ok) throw new Error('Slet ' + delRes.status);
-  }
-
-  // 3. Sortér trips kronologisk (ældste først så nyeste ender øverst i Excel når vi indsætter)
-  // Vi vil have nyeste øverst i Excel, så vi indsætter ældste først, eller bruger index=0 hver gang
-  const sortedTrips = [...trips].sort((a, b) => {
-    if(a.date !== b.date) return a.date.localeCompare(b.date);
-    return a.id - b.id;
-  });
-
-  // 4. Indsæt rækker — vi indsætter ældste først, så nyeste ender øverst
-  // Faktisk er det nemmere at indsætte alle på én gang
-  if(sortedTrips.length > 0){
-    const allValues = sortedTrips.map(trip => [
-      trip.car || '',
-      dateToExcelSerial(trip.date),
-      trip.odoStart,
-      trip.odoEnd,
-      trip.km,
-      trip.from,
-      trip.via || '',
-      trip.to,
-      trip.purpose || '',
-      String(trip.id)
-    ]);
-
-    const addRes = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows/add`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: allValues })
-    });
-    if(!addRes.ok){
-      const txt = await addRes.text();
-      throw new Error('Tilføj ' + addRes.status + ': ' + txt.slice(0,100));
-    }
-  }
-
-  // 5. Opdater sumrækken
-  await updateTotalKmRow();
-
-  return true;
-}
-
 async function syncTripToExcel(trip){
-  // Brug rebuildExcelTable så data altid er sorteret efter dato
-  return await rebuildExcelTable();
-}
-
-async function syncSingleTripToExcel(trip){
   if(!odAccount) throw new Error('Ikke logget ind');
   if(!SP_CONFIG) throw new Error('App ikke konfigureret');
   const token = await getGraphToken();
   if(!token) throw new Error('Kan ikke hente adgangstoken');
 
-  await spFindFile(token); // verificér at filen findes
-
+  await spFindFile(token);
   const base = buildGraphBaseUrl();
+
   const rowUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows/add`;
   const body = { values: [[
     trip.car || '',
@@ -2182,10 +2121,7 @@ async function syncSingleTripToExcel(trip){
 
   const r = await fetch(rowUrl, {
     method: 'POST',
-    headers: {
-      Authorization: 'Bearer ' + token,
-      'Content-Type': 'application/json'
-    },
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
 
@@ -2194,10 +2130,26 @@ async function syncSingleTripToExcel(trip){
     throw new Error('Skriv ' + r.status + ': ' + txt.slice(0,100));
   }
 
-  // Opdater "I alt"-rækken efter vellykket gem
+  // Sortér tabellen efter dato (kolonne B, index 1)
+  await sortExcelTable(token, base);
+
+  // Opdater "I alt"-rækken
   updateTotalKmRow().catch(e => console.warn('Total-opdatering:', e));
 
   return true;
+}
+
+async function sortExcelTable(token, base){
+  // Sortér tabellen efter dato (kolonne B, index 1) — ældste øverst
+  try {
+    await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/sort/apply`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: [{ key: 1, ascending: true, sortOn: 'Value' }]
+      })
+    });
+  } catch(e){ console.warn('Sort fejl:', e); }
 }
 
 async function deleteTripFromExcel(tripId){
@@ -2329,10 +2281,16 @@ async function fetchSuggestions(query, id){
 function pickSuggestion(id, address){
   document.getElementById(id).value = address;
   document.getElementById('sug-' + id).style.display = 'none';
-  checkCalcReady();
-  checkSaveReady();
-  // Auto-beregn når vi har valgt en adresse fra forslaget
-  if(id === 'from' || id === 'via' || id === 'to') scheduleAutoCalc();
+  // Forside-felter
+  if(id === 'from' || id === 'via' || id === 'to'){
+    checkCalcReady();
+    checkSaveReady();
+    scheduleAutoCalc();
+  }
+  // Edit-felter
+  else if(id === 'edit-from' || id === 'edit-via' || id === 'edit-to'){
+    scheduleEditAutoCalc();
+  }
 }
 
 function esc(s){ return String(s).replace(/'/g,"&#39;").replace(/"/g,"&quot;") }
@@ -2836,6 +2794,54 @@ function renderLog(){
 // ═══ EDIT TRIP ═══
 let _editingTripId = null;
 
+let _editTripAutocompleteSetup = false;
+
+async function autoCalcEditRoute(){
+  const from = document.getElementById('edit-from').value.trim();
+  const via = document.getElementById('edit-via').value.trim();
+  const to = document.getElementById('edit-to').value.trim();
+  if(from.length < 5 || to.length < 5) return;
+
+  const cacheKey = from + '||' + via + '||' + to;
+  let dist;
+  if(_routeCache.has(cacheKey)){
+    dist = _routeCache.get(cacheKey).distance;
+  } else {
+    try {
+      const waypoints = [from, ...(via ? [via] : []), to];
+      const coords = await Promise.all(waypoints.map(geocode));
+      const coordStr = coords.map(c => c.lon + ',' + c.lat).join(';');
+      const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=false`;
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 10000);
+      const r = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(timeoutId);
+      const d = await r.json();
+      if(d.code !== 'Ok') return;
+      dist = d.routes[0].distance / 1000;
+      _routeCache.set(cacheKey, { distance: dist, duration: d.routes[0].duration });
+    } catch(e){ console.warn('Edit auto-calc:', e); return; }
+  }
+
+  // Opdater km-feltet
+  document.getElementById('edit-km').value = dist.toFixed(1);
+
+  // Opdater slut km baseret på start km
+  const startKm = parseInt(document.getElementById('edit-odo-start').value);
+  const endKm = parseInt(document.getElementById('edit-odo-end').value);
+  if(!isNaN(startKm)){
+    document.getElementById('edit-odo-end').value = startKm + Math.round(dist);
+  } else if(!isNaN(endKm)){
+    document.getElementById('edit-odo-start').value = endKm - Math.round(dist);
+  }
+}
+
+let _editAutoCalcTimer = null;
+function scheduleEditAutoCalc(){
+  if(_editAutoCalcTimer) clearTimeout(_editAutoCalcTimer);
+  _editAutoCalcTimer = setTimeout(autoCalcEditRoute, 1000);
+}
+
 function openEditTrip(id){
   const trip = trips.find(t => t.id === id);
   if(!trip) return;
@@ -2855,6 +2861,19 @@ function openEditTrip(id){
   document.getElementById('edit-odo-end').value = trip.odoEnd;
   document.getElementById('edit-km').value = trip.km;
   document.getElementById('edit-purpose').value = trip.purpose || '';
+
+  // Sæt autocomplete + auto-calc op (kun første gang)
+  if(!_editTripAutocompleteSetup){
+    ['edit-from','edit-via','edit-to'].forEach(fid => {
+      setupAutocomplete(fid);
+      document.getElementById(fid).addEventListener('input', scheduleEditAutoCalc);
+      document.getElementById(fid).addEventListener('blur', () => {
+        clearTimeout(_editAutoCalcTimer);
+        autoCalcEditRoute();
+      });
+    });
+    _editTripAutocompleteSetup = true;
+  }
 
   document.getElementById('edit-trip-modal').classList.add('open');
 }
@@ -2902,10 +2921,11 @@ async function saveEditTrip(){
 
   closeEditTrip();
 
-  // Genopbyg hele Excel-tabellen sorteret efter dato
+  // Opdater Excel: slet gammel række, tilføj ny, sortér
   if(wasSynced && odAccount && SP_CONFIG){
     try {
-      await rebuildExcelTable();
+      await deleteTripFromExcel(editId);
+      await syncTripToExcel(trip);
     } catch(e){
       alert('⚠ Kunne ikke opdatere Excel: ' + e.message + '\n\nÆndringen er gemt lokalt.');
     }

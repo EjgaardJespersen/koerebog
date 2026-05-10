@@ -924,6 +924,54 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   </div>
 </div>
 
+<!-- EDIT TRIP MODAL -->
+<div class="modal-overlay" id="edit-trip-modal" onclick="closeEditTrip(event)">
+  <div class="modal-sheet" onclick="e=>e.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✎ Rediger kørsel</div>
+    <div class="fav-add-form" style="margin-top:12px">
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Bil</label>
+      <select id="edit-car" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'Outfit',sans-serif;font-size:13px;background:var(--surface2);color:var(--text);-webkit-appearance:none">
+      </select>
+
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Dato</label>
+      <input id="edit-date" type="date">
+
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Startadresse</label>
+      <input id="edit-from" type="text" placeholder="Startadresse">
+
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Via (valgfri)</label>
+      <input id="edit-via" type="text" placeholder="Via-adresse">
+
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Slutadresse</label>
+      <input id="edit-to" type="text" placeholder="Slutadresse">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Start km</label>
+          <input id="edit-odo-start" type="number" inputmode="numeric">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Slut km</label>
+          <input id="edit-odo-end" type="number" inputmode="numeric">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Antal km</label>
+          <input id="edit-km" type="number" step="0.1" inputmode="decimal">
+        </div>
+      </div>
+
+      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px">Formål</label>
+      <textarea id="edit-purpose" placeholder="Formål med kørslen" style="height:60px"></textarea>
+
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn-secondary" onclick="closeEditTrip()">Annuller</button>
+        <button class="btn-primary-sm" onclick="saveEditTrip()">💾 Gem ændringer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1882,6 +1930,73 @@ function dateToExcelSerial(isoDate){
   return Math.floor(ms / 86400000) + 25569;
 }
 
+async function updateTotalKmRow(){
+  // Skriver "I alt: XX,X km" i kolonne D-E i rækken EFTER den seneste data-række
+  if(!odAccount || !SP_CONFIG) return;
+  try {
+    const token = await getGraphToken();
+    if(!token) return;
+    await spFindFile(token);
+    const base = buildGraphBaseUrl();
+
+    // Hent rækker for at vide hvor mange der er
+    const r = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if(!r.ok) return;
+    const data = await r.json();
+    const rows = data.value || [];
+
+    // Beregn samlede km
+    let totalKm = 0;
+    for(const row of rows){
+      const v = row.values[0];
+      const km = parseFloat(v[4]);
+      if(!isNaN(km)) totalKm += km;
+    }
+
+    // Skriv summen i rækken efter sidste tabel-række
+    // Tabellen starter på række 1 (header), så data starter på række 2
+    // Hvis der er N rækker, ligger sidste på række N+1, og næste tomme er N+2
+    const sumRowNum = rows.length + 2;
+
+    // Brug worksheet range API til at skrive udenfor tabellen
+    const sheetUrl = `${base}/workbook/worksheets`;
+    const sheetsRes = await fetch(sheetUrl, { headers: { Authorization: 'Bearer ' + token } });
+    if(!sheetsRes.ok) return;
+    const sheetsData = await sheetsRes.json();
+    const sheet = (sheetsData.value || [])[0];
+    if(!sheet) return;
+
+    // Først ryd evt. gammel sumtekst på alle rækker mellem data og sumrow
+    // (i tilfælde af at en kørsel er slettet)
+    const clearRange = `A${sumRowNum-2}:I${sumRowNum+5}`;
+    // Vi rydder dog ikke dataceller — kun celler udenfor tabellen
+    // Ryd kun cellerne på sumRowNum og 5 rækker frem (sikkerhedsmargin ved sletning)
+    const safeClearRange = `D${sumRowNum}:E${sumRowNum+10}`;
+    await fetch(`${base}/workbook/worksheets/${sheet.id}/range(address='${safeClearRange}')`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        values: Array.from({length: 11}, () => ['', ''])
+      })
+    });
+
+    // Skriv ny sum
+    const sumRange = `D${sumRowNum}:E${sumRowNum}`;
+    await fetch(`${base}/workbook/worksheets/${sheet.id}/range(address='${sumRange}')`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        values: [['I alt:', totalKm.toFixed(1) + ' km']],
+        format: { font: { bold: true } }
+      })
+    });
+  } catch(e){
+    console.warn('updateTotalKmRow:', e);
+  }
+}
+
 async function syncTripToExcel(trip){
   if(!odAccount) throw new Error('Ikke logget ind');
   if(!SP_CONFIG) throw new Error('App ikke konfigureret');
@@ -1918,6 +2033,10 @@ async function syncTripToExcel(trip){
     const txt = await r.text();
     throw new Error('Skriv ' + r.status + ': ' + txt.slice(0,100));
   }
+
+  // Opdater "I alt"-rækken efter vellykket gem
+  updateTotalKmRow().catch(e => console.warn('Total-opdatering:', e));
+
   return true;
 }
 
@@ -1956,6 +2075,10 @@ async function deleteTripFromExcel(tripId){
       console.warn('Slet HTTP-fejl:', delRes.status, await delRes.text());
       return false;
     }
+
+    // Opdater "I alt"-rækken efter vellykket sletning
+    updateTotalKmRow().catch(e => console.warn('Total-opdatering:', e));
+
     return true;
   } catch(e){
     console.warn('Delete error:', e);
@@ -2453,10 +2576,95 @@ function renderLog(){
           <div class="trip-odo-str" style="margin-top:4px">ODO: ${t.odoStart.toLocaleString('da-DK')} → ${t.odoEnd.toLocaleString('da-DK')} km</div>
           ${t.synced ? '<div class="trip-synced" style="margin-top:4px">☁️ Synkroniseret</div>' : ''}
         </div>
-        <button class="trip-del-btn" onclick="deleteTrip(${t.id})">✕</button>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="trip-del-btn" onclick="openEditTrip(${t.id})" style="background:var(--blue-light);color:var(--blue);border-color:var(--blue)" title="Rediger">✎</button>
+          <button class="trip-del-btn" onclick="deleteTrip(${t.id})" title="Slet">✕</button>
+        </div>
       </div>
     </div>
   `).join('') + '</div>';
+}
+
+// ═══ EDIT TRIP ═══
+let _editingTripId = null;
+
+function openEditTrip(id){
+  const trip = trips.find(t => t.id === id);
+  if(!trip) return;
+  _editingTripId = id;
+
+  // Fyld bil-vælger
+  const carSel = document.getElementById('edit-car');
+  carSel.innerHTML = cars.length > 0
+    ? cars.map(c => `<option value="${esc(c.reg)}" ${c.reg === trip.car ? 'selected' : ''}>${esc(c.name)} · ${esc(c.reg)}</option>`).join('')
+    : '<option value="">Ingen biler</option>';
+
+  document.getElementById('edit-date').value = trip.date;
+  document.getElementById('edit-from').value = trip.from;
+  document.getElementById('edit-via').value = trip.via || '';
+  document.getElementById('edit-to').value = trip.to;
+  document.getElementById('edit-odo-start').value = trip.odoStart;
+  document.getElementById('edit-odo-end').value = trip.odoEnd;
+  document.getElementById('edit-km').value = trip.km;
+  document.getElementById('edit-purpose').value = trip.purpose || '';
+
+  document.getElementById('edit-trip-modal').classList.add('open');
+}
+
+function closeEditTrip(e){
+  if(!e || e.target === document.getElementById('edit-trip-modal')){
+    document.getElementById('edit-trip-modal').classList.remove('open');
+    _editingTripId = null;
+  }
+}
+
+async function saveEditTrip(){
+  if(!_editingTripId) return;
+  const trip = trips.find(t => t.id === _editingTripId);
+  if(!trip) return;
+
+  const newCar = document.getElementById('edit-car').value;
+  const newDate = document.getElementById('edit-date').value;
+  const newFrom = document.getElementById('edit-from').value.trim();
+  const newVia = document.getElementById('edit-via').value.trim();
+  const newTo = document.getElementById('edit-to').value.trim();
+  const newOdoStart = parseInt(document.getElementById('edit-odo-start').value) || 0;
+  const newOdoEnd = parseInt(document.getElementById('edit-odo-end').value) || 0;
+  const newKm = parseFloat(document.getElementById('edit-km').value) || 0;
+  const newPurpose = document.getElementById('edit-purpose').value.trim();
+
+  if(!newFrom || !newTo){ alert('Start- og slutadresse skal udfyldes'); return; }
+
+  const editId = _editingTripId;
+  const wasSynced = trip.synced;
+
+  // Opdater lokalt først
+  trip.car = newCar;
+  trip.date = newDate;
+  trip.from = newFrom;
+  trip.via = newVia;
+  trip.to = newTo;
+  trip.odoStart = newOdoStart;
+  trip.odoEnd = newOdoEnd;
+  trip.km = newKm;
+  trip.purpose = newPurpose;
+  saveTrips();
+  renderLog();
+  updateTotalBadge();
+
+  closeEditTrip();
+
+  // Opdater Excel hvis kørslen er synkroniseret: slet gammel række og indsæt ny
+  if(wasSynced && odAccount && SP_CONFIG){
+    try {
+      await deleteTripFromExcel(editId);
+      await syncTripToExcel(trip);
+      // Opdater summen efter en vellykket redigering
+      await updateTotalKmRow();
+    } catch(e){
+      alert('⚠ Kunne ikke opdatere Excel: ' + e.message + '\n\nÆndringen er gemt lokalt.');
+    }
+  }
 }
 
 async function deleteTrip(id){

@@ -1416,9 +1416,37 @@ function renderCarList(){
         <div class="fav-addr">${esc(c.reg)}</div>
       </div>
       ${c.reg === activeCar ? '<span style="font-size:11px;color:var(--green);font-weight:700;background:var(--green-light);padding:3px 8px;border-radius:10px">AKTIV</span>' : '<span style="font-size:11px;color:var(--blue);font-weight:600">Vælg</span>'}
-      <button class="fav-remove" onclick="event.stopPropagation();removeCar(${i})">✕</button>
+      <button class="fav-remove" onclick="event.stopPropagation();editCar(${i})" style="background:var(--blue-light);color:var(--blue);border-color:var(--blue);margin-right:4px" title="Rediger">✎</button>
+      <button class="fav-remove" onclick="event.stopPropagation();removeCar(${i})" title="Slet">✕</button>
     </div>
   `).join('');
+}
+
+function editCar(i){
+  const c = cars[i];
+  if(!c) return;
+  const newName = prompt('Bilens navn:', c.name);
+  if(newName === null) return;
+  const newReg = prompt('Registreringsnummer:', c.reg);
+  if(newReg === null) return;
+
+  const trimmedName = newName.trim();
+  const trimmedReg = newReg.trim().toUpperCase();
+  if(!trimmedName || !trimmedReg){ alert('Navn og reg.nr må ikke være tomme'); return; }
+
+  // Tjek for dubletter (men tillad samme reg som den vi redigerer)
+  if(cars.some((other, idx) => idx !== i && other.reg === trimmedReg)){
+    alert('En anden bil bruger allerede dette reg.nr'); return;
+  }
+
+  const oldReg = c.reg;
+  c.name = trimmedName;
+  c.reg = trimmedReg;
+  // Hvis aktiv bil var denne, opdater
+  if(activeCar === oldReg) activeCar = trimmedReg;
+  saveCars();
+  renderCarList();
+  renderCarPicker();
 }
 
 function selectActiveCarFromList(reg){
@@ -1939,15 +1967,25 @@ async function updateTotalKmRow(){
     await spFindFile(token);
     const base = buildGraphBaseUrl();
 
-    // Hent rækker for at vide hvor mange der er
+    // Hent ark-information
+    const sheetsRes = await fetch(`${base}/workbook/worksheets`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if(!sheetsRes.ok){ console.warn('Sheets fejl:', sheetsRes.status); return; }
+    const sheetsData = await sheetsRes.json();
+    const sheet = (sheetsData.value || [])[0];
+    if(!sheet){ console.warn('Intet ark fundet'); return; }
+    const sheetName = sheet.name;
+
+    // Hent rækker for at beregne sum
     const r = await fetch(`${base}/workbook/tables/${SP_CONFIG.tableId}/rows`, {
       headers: { Authorization: 'Bearer ' + token }
     });
-    if(!r.ok) return;
+    if(!r.ok){ console.warn('Rækker fejl:', r.status); return; }
     const data = await r.json();
     const rows = data.value || [];
 
-    // Beregn samlede km
+    // Beregn samlet km — kolonne E (index 4)
     let totalKm = 0;
     for(const row of rows){
       const v = row.values[0];
@@ -1955,43 +1993,47 @@ async function updateTotalKmRow(){
       if(!isNaN(km)) totalKm += km;
     }
 
-    // Skriv summen i rækken efter sidste tabel-række
-    // Tabellen starter på række 1 (header), så data starter på række 2
-    // Hvis der er N rækker, ligger sidste på række N+1, og næste tomme er N+2
+    // Position af sumrækken: header=1, data=2..N+1, sum=N+2
     const sumRowNum = rows.length + 2;
 
-    // Brug worksheet range API til at skrive udenfor tabellen
-    const sheetUrl = `${base}/workbook/worksheets`;
-    const sheetsRes = await fetch(sheetUrl, { headers: { Authorization: 'Bearer ' + token } });
-    if(!sheetsRes.ok) return;
-    const sheetsData = await sheetsRes.json();
-    const sheet = (sheetsData.value || [])[0];
-    if(!sheet) return;
+    // Først ryd op til 15 rækker under tabellen (så gamle summer fjernes ved sletning)
+    const clearStart = 2;
+    const clearEnd = rows.length + 16;
+    for(let row = clearStart + rows.length; row <= clearEnd; row++){
+      // Spring sumrækken over — den skal vi skrive til
+      if(row === sumRowNum) continue;
+      const range = `D${row}:E${row}`;
+      await fetch(`${base}/workbook/worksheets('${encodeURIComponent(sheetName)}')/range(address='${range}')`, {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['', '']] })
+      }).catch(() => {});
+    }
 
-    // Først ryd evt. gammel sumtekst på alle rækker mellem data og sumrow
-    // (i tilfælde af at en kørsel er slettet)
-    const clearRange = `A${sumRowNum-2}:I${sumRowNum+5}`;
-    // Vi rydder dog ikke dataceller — kun celler udenfor tabellen
-    // Ryd kun cellerne på sumRowNum og 5 rækker frem (sikkerhedsmargin ved sletning)
-    const safeClearRange = `D${sumRowNum}:E${sumRowNum+10}`;
-    await fetch(`${base}/workbook/worksheets/${sheet.id}/range(address='${safeClearRange}')`, {
-      method: 'PATCH',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        values: Array.from({length: 11}, () => ['', ''])
-      })
-    });
-
-    // Skriv ny sum
+    // Skriv "I alt:" i D og selve summen i E
     const sumRange = `D${sumRowNum}:E${sumRowNum}`;
-    await fetch(`${base}/workbook/worksheets/${sheet.id}/range(address='${sumRange}')`, {
+    const sumRes = await fetch(`${base}/workbook/worksheets('${encodeURIComponent(sheetName)}')/range(address='${sumRange}')`, {
       method: 'PATCH',
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        values: [['I alt:', totalKm.toFixed(1) + ' km']],
-        format: { font: { bold: true } }
+        values: [['I alt:', totalKm.toFixed(1)]]
       })
     });
+
+    if(!sumRes.ok){
+      const errTxt = await sumRes.text();
+      console.warn('Sum-skriv fejl:', sumRes.status, errTxt.slice(0,200));
+      return;
+    }
+
+    // Sæt fed skrift på sum-cellen
+    await fetch(`${base}/workbook/worksheets('${encodeURIComponent(sheetName)}')/range(address='${sumRange}')/format/font`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bold: true })
+    }).catch(() => {});
+
+    console.log('Sum opdateret:', totalKm.toFixed(1), 'km på række', sumRowNum);
   } catch(e){
     console.warn('updateTotalKmRow:', e);
   }
@@ -2205,15 +2247,85 @@ function renderFavList(){
     return;
   }
   list.innerHTML = favorites.map((f,i) => `
-    <div class="fav-item">
+    <div class="fav-item" draggable="true"
+         ondragstart="favDragStart(event,${i})"
+         ondragover="favDragOver(event)"
+         ondragleave="favDragLeave(event)"
+         ondrop="favDrop(event,${i})"
+         ondragend="favDragEnd(event)"
+         data-fav-idx="${i}">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <button onclick="moveFav(${i},-1)" ${i===0?'disabled':''} style="background:var(--surface2);border:1px solid var(--border);width:22px;height:18px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-size:10px;color:var(--text2);line-height:1;-webkit-appearance:none">▲</button>
+        <button onclick="moveFav(${i},1)" ${i===favorites.length-1?'disabled':''} style="background:var(--surface2);border:1px solid var(--border);width:22px;height:18px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-size:10px;color:var(--text2);line-height:1;-webkit-appearance:none">▼</button>
+      </div>
       <span style="font-size:18px">⭐</span>
-      <div style="flex:1">
+      <div style="flex:1;min-width:0">
         <div class="fav-name">${esc(f.name)}</div>
         <div class="fav-addr">${esc(f.address)}</div>
       </div>
-      <button class="fav-remove" onclick="removeFav(${i})">✕</button>
+      <button class="fav-remove" onclick="editFav(${i})" style="background:var(--blue-light);color:var(--blue);border-color:var(--blue);margin-right:4px" title="Rediger">✎</button>
+      <button class="fav-remove" onclick="removeFav(${i})" title="Slet">✕</button>
     </div>
   `).join('');
+}
+
+function moveFav(idx, dir){
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= favorites.length) return;
+  const moved = favorites.splice(idx, 1)[0];
+  favorites.splice(newIdx, 0, moved);
+  saveFavs();
+  renderFavList();
+  renderFrontFavs();
+}
+
+function editFav(i){
+  const f = favorites[i];
+  if(!f) return;
+  const newName = prompt('Navn:', f.name);
+  if(newName === null) return;
+  const newAddr = prompt('Adresse:', f.address);
+  if(newAddr === null) return;
+  const tn = newName.trim();
+  const ta = newAddr.trim();
+  if(!tn || !ta){ alert('Navn og adresse må ikke være tomme'); return; }
+  f.name = tn;
+  f.address = ta;
+  saveFavs();
+  renderFavList();
+  renderFrontFavs();
+}
+
+// ═══ DRAG & DROP for favoritter ═══
+let _favDragIdx = null;
+function favDragStart(e, idx){
+  _favDragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '0.4';
+}
+function favDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.style.borderTop = '2px solid var(--blue)';
+}
+function favDragLeave(e){
+  e.currentTarget.style.borderTop = '';
+}
+function favDrop(e, dropIdx){
+  e.preventDefault();
+  e.currentTarget.style.borderTop = '';
+  if(_favDragIdx === null || _favDragIdx === dropIdx) return;
+  const moved = favorites.splice(_favDragIdx, 1)[0];
+  favorites.splice(dropIdx, 0, moved);
+  _favDragIdx = null;
+  saveFavs();
+  renderFavList();
+  renderFrontFavs();
+}
+function favDragEnd(e){
+  e.currentTarget.style.opacity = '';
+  document.querySelectorAll('.fav-item').forEach(el => el.style.borderTop = '');
+  _favDragIdx = null;
 }
 function addFavorite(){
   const name = document.getElementById('fav-name-input').value.trim();

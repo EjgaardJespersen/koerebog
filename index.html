@@ -1434,6 +1434,7 @@ function applyFavTarget(target){
   closeFavTarget();
   checkSaveReady();
   checkCalcReady();
+  scheduleAutoCalc();
 }
 
 function showLoginScreen(){
@@ -2023,6 +2024,8 @@ function pickSuggestion(id, address){
   document.getElementById('sug-' + id).style.display = 'none';
   checkCalcReady();
   checkSaveReady();
+  // Auto-beregn når vi har valgt en adresse fra forslaget
+  if(id === 'from' || id === 'via' || id === 'to') scheduleAutoCalc();
 }
 
 function esc(s){ return String(s).replace(/'/g,"&#39;").replace(/"/g,"&quot;") }
@@ -2122,13 +2125,41 @@ function checkCalcReady(){
   document.getElementById('calc-btn').disabled = !(f.length > 2 && t.length > 2);
 }
 
+// Cache for at undgå at beregne samme rute flere gange
+const _routeCache = new Map();
+const _geocodeCache = new Map();
+
+let _autoCalcTimer = null;
+function scheduleAutoCalc(){
+  // Auto-beregn når from + to er udfyldt og brugeren stopper med at skrive
+  if(_autoCalcTimer) clearTimeout(_autoCalcTimer);
+  _autoCalcTimer = setTimeout(() => {
+    const from = document.getElementById('from').value.trim();
+    const to = document.getElementById('to').value.trim();
+    if(from.length > 5 && to.length > 5){
+      // Kun hvis vi ikke allerede har beregnet for disse adresser
+      const via = document.getElementById('via').value.trim();
+      const cacheKey = from + '||' + via + '||' + to;
+      if(currentDist === null || _lastCalcKey !== cacheKey){
+        calcRoute();
+      }
+    }
+  }, 800);
+}
+
+let _lastCalcKey = '';
+
 async function geocode(addr){
+  const cached = _geocodeCache.get(addr);
+  if(cached) return cached;
   const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(addr)}&lang=da&limit=1&filter=countrycode:dk&apiKey=${GEOAPIFY_KEY}`;
   const r = await fetch(url);
   const d = await r.json();
   const f = d.features && d.features[0];
   if(!f) throw new Error('Adresse ikke fundet: "' + addr + '"');
-  return { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] };
+  const coords = { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] };
+  _geocodeCache.set(addr, coords);
+  return coords;
 }
 
 async function calcRoute(){
@@ -2137,9 +2168,26 @@ async function calcRoute(){
   const to   = document.getElementById('to').value.trim();
   if(!from || !to) return;
 
+  const cacheKey = from + '||' + via + '||' + to;
+  _lastCalcKey = cacheKey;
+
   const distEl = document.getElementById('dist-km');
   const subEl  = document.getElementById('dist-sub');
   const statEl = document.getElementById('dist-status');
+
+  // Tjek cache først — vis straks hvis vi har det
+  const cached = _routeCache.get(cacheKey);
+  if(cached){
+    currentDist = cached.distance;
+    currentDuration = cached.duration;
+    distEl.innerHTML = currentDist.toFixed(1) + ' <span>km</span>';
+    distEl.style.display = 'inline-block';
+    subEl.style.display = 'none';
+    statEl.style.display = 'none';
+    recalcOdoAfterRoute();
+    checkSaveReady();
+    return;
+  }
 
   distEl.style.display = 'none';
   subEl.style.display = 'none';
@@ -2155,12 +2203,20 @@ async function calcRoute(){
     const coords = await Promise.all(waypoints.map(geocode));
     const coordStr = coords.map(c => c.lon + ',' + c.lat).join(';');
     const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=false`;
-    const r = await fetch(url);
+
+    // Timeout efter 10 sek
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timeoutId);
     const d = await r.json();
     if(d.code !== 'Ok') throw new Error('Ingen rute fundet');
 
     currentDist = d.routes[0].distance / 1000;
     currentDuration = d.routes[0].duration;
+
+    // Gem i cache
+    _routeCache.set(cacheKey, { distance: currentDist, duration: currentDuration });
 
     distEl.innerHTML = currentDist.toFixed(1) + ' <span>km</span>';
     distEl.style.display = 'inline-block';
@@ -2169,7 +2225,8 @@ async function calcRoute(){
     recalcOdoAfterRoute();
     checkSaveReady();
   } catch(e){
-    statEl.textContent = '⚠ ' + (e.message || 'Fejl – prøv igen');
+    const msg = e.name === 'AbortError' ? 'Beregning tog for lang tid — prøv igen' : (e.message || 'Fejl – prøv igen');
+    statEl.textContent = '⚠ ' + msg;
     statEl.className = 'dist-status err';
     statEl.style.display = 'block';
   }

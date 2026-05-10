@@ -571,7 +571,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   <div class="setup-card">
     <div class="setup-icon">📊</div>
     <div class="setup-title">Forbind Excel-fil</div>
-    <div class="setup-sub">Vælg hvor din kørebog skal gemmes</div>
+    <div class="setup-sub">Vælg hvor din kørebogsskabelon er gemt</div>
 
     <!-- Step 0: Vælg storage -->
     <div class="setup-step" id="setup-step-storage">
@@ -598,9 +598,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
     <!-- Step 1: Vælg site (kun SharePoint) -->
     <div class="setup-step" id="setup-step-site" style="display:none">
-      <div class="setup-step-label"><span class="setup-step-num">2</span> Vælg SharePoint-site eller Teams</div>
+      <div class="setup-step-label"><span class="setup-step-num">2</span> Vælg SharePoint-site eller Team</div>
       <button onclick="loadStorageOptions()" style="background:none;border:none;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;padding:2px 0;margin-bottom:8px;font-weight:600">← Skift lagring</button>
-      <input class="setup-search-input" id="site-search" placeholder="Søg efter site..." autocomplete="off" oninput="renderSites(this.value)">
+      <input class="setup-search-input" id="site-search" placeholder="Søg efter SharePoint-site eller Team..." autocomplete="off" oninput="renderSites(this.value)">
       <div class="setup-list" id="site-list">
         <div class="setup-loading"><span class="spinner"></span> Henter dine sites...</div>
       </div>
@@ -1568,12 +1568,15 @@ function renderFiles(filter){
     list.innerHTML = '<div class="setup-empty">Ingen .xlsx filer fundet.<br>Upload en Excel-skabelon først.</div>';
     return;
   }
+  const locationLabel = _setupMode === 'sharepoint'
+    ? (_setupSelectedSite?.displayName || _setupSelectedSite?.name || 'SharePoint / Teams')
+    : 'OneDrive';
   list.innerHTML = filtered.slice(0, 30).map(f => `
     <div class="setup-item" onclick="pickFile('${f.id}','${escHtml(f.name)}')">
       <div class="setup-item-icon">📊</div>
       <div class="setup-item-text">
         <div class="setup-item-name">${escHtml(f.name)}</div>
-        <div class="setup-item-sub">${escHtml(f.parentReference?.path?.replace('/drive/root:','') || 'OneDrive')}</div>
+        <div class="setup-item-sub">${escHtml(locationLabel)}</div>
       </div>
     </div>
   `).join('');

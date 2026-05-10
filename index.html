@@ -1348,8 +1348,13 @@ async function revealApp(){
       }
     });
   });
-  document.getElementById('odo-start').addEventListener('input', () => updateOdoFields('start'));
-  document.getElementById('odo-end').addEventListener('input', () => updateOdoFields('end'));
+  ['odo-start','odo-end'].forEach(id => {
+    const el = document.getElementById(id);
+    const which = id === 'odo-start' ? 'start' : 'end';
+    el.addEventListener('input', () => updateOdoFields(which));
+    el.addEventListener('change', () => updateOdoFields(which));
+    el.addEventListener('keyup', () => updateOdoFields(which));
+  });
   const nameEl = document.getElementById('logged-in-as');
   if(nameEl) nameEl.textContent = settings.odAccountName || odAccount?.username || '–';
   const syncEl = document.getElementById('sync-status');
@@ -2563,7 +2568,7 @@ function formatDuration(sec){
 
 // ═══ ODO ═══
 function updateOdoFields(changed){
-  if(!currentDist) return;
+  if(!currentDist || isNaN(currentDist)) return;
   const dist = Math.round(currentDist);
   const startEl = document.getElementById('odo-start');
   const endEl   = document.getElementById('odo-end');

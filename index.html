@@ -695,12 +695,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
       <!-- Beregn-knap + resultat på én linje -->
       <div style="display:flex;align-items:center;gap:10px">
-        <button class="calc-btn" id="calc-btn" onclick="calcRoute()" disabled style="flex-shrink:0;padding:11px 18px;font-size:14px;border-radius:11px">Beregn km</button>
-        <div class="route-result" id="route-result" style="flex:1;display:flex;align-items:center;justify-content:flex-end;min-width:0;padding:0 4px">
+        <div class="route-result" id="route-result" style="flex:1;display:flex;align-items:center;min-width:0;padding:0 4px">
           <div class="dist-km" id="dist-km" style="display:none;font-size:20px;font-weight:800;color:var(--text);line-height:1">– <span style="font-size:12px;color:var(--muted);font-weight:600">km</span></div>
           <div class="dist-status" id="dist-status" style="display:none;font-size:12px"></div>
           <div class="dist-sub" id="dist-sub" style="display:none"></div>
         </div>
+        <button class="calc-btn" id="calc-btn" onclick="calcRoute()" disabled style="flex-shrink:0;padding:11px 18px;font-size:14px;border-radius:11px">Beregn km</button>
       </div>
     </div>
 
@@ -1821,6 +1821,15 @@ function buildGraphBaseUrl(){
     : `https://graph.microsoft.com/v1.0/sites/${SP_CONFIG.siteId}/drive/items/${SP_CONFIG.fileId}`;
 }
 
+function dateToExcelSerial(isoDate){
+  // Konverterer "2026-10-05" til Excel serielt tal (dage siden 1900-01-01, +2 pga. Excel bug)
+  if(!isoDate) return '';
+  const dt = new Date(isoDate + 'T12:00:00Z');
+  if(isNaN(dt.getTime())) return isoDate;
+  const ms = dt.getTime();
+  return Math.floor(ms / 86400000) + 25569;
+}
+
 async function syncTripToExcel(trip){
   if(!odAccount) throw new Error('Ikke logget ind');
   if(!SP_CONFIG) throw new Error('App ikke konfigureret');
@@ -1833,7 +1842,7 @@ async function syncTripToExcel(trip){
   const rowUrl = `${base}/workbook/tables/${SP_CONFIG.tableId}/rows/add`;
   const body = { values: [[
     trip.car || '',
-    trip.date,
+    dateToExcelSerial(trip.date),
     trip.odoStart,
     trip.odoEnd,
     trip.km,
@@ -2295,9 +2304,7 @@ function resetForm(){
   closeVia();
   document.getElementById('dist-km').style.display = 'none';
   document.getElementById('dist-sub').style.display = 'none';
-  document.getElementById('dist-status').textContent = 'Tryk Beregn';
-  document.getElementById('dist-status').className = 'dist-status';
-  document.getElementById('dist-status').style.display = 'block';
+  document.getElementById('dist-status').style.display = 'none';
   document.getElementById('odo-end-val').textContent = '–';
   document.getElementById('odo-end-val').className = 'odo-val placeholder';
   document.getElementById('save-btn').disabled = true;

@@ -775,8 +775,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 
     <!-- Export -->
     <div class="card">
-      <div class="card-title">📤 Eksport</div>
+      <div class="card-title">📤 Eksport / Import</div>
       <button class="export-btn" onclick="exportCSV()">⬇️ Download som CSV-fil</button>
+      <button class="export-btn" onclick="document.getElementById('csv-import-input').click()" style="margin-top:8px;background:var(--blue-light);color:var(--blue);border-color:var(--blue)">⬆️ Importér CSV-fil</button>
+      <input type="file" id="csv-import-input" accept=".csv" style="display:none" onchange="importCSV(event)">
     </div>
 
     <!-- Log ud -->
@@ -3004,6 +3006,137 @@ function renderStats(){
       </div>
     `).join('')}
   ` : '';
+}
+
+// ═══ IMPORT CSV ═══
+function importCSV(event){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      let text = e.target.result;
+      // Fjern BOM hvis present
+      if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if(lines.length < 2){ alert('CSV-filen er tom eller ugyldig'); return; }
+
+      // Parse header
+      const header = parseCsvLine(lines[0]);
+      const colIdx = {
+        date: header.findIndex(h => /^dato$/i.test(h)),
+        from: header.findIndex(h => /^fra$|^startadresse$/i.test(h)),
+        via: header.findIndex(h => /^via$/i.test(h)),
+        to: header.findIndex(h => /^til$|^slutadresse$/i.test(h)),
+        km: header.findIndex(h => /^km$|^antal km$/i.test(h)),
+        odoStart: header.findIndex(h => /^odo start$|^km-tæller start$/i.test(h)),
+        odoEnd: header.findIndex(h => /^odo slut$|^km-tæller slut$/i.test(h)),
+        purpose: header.findIndex(h => /^formål/i.test(h)),
+        car: header.findIndex(h => /^reg|^bil/i.test(h))
+      };
+
+      if(colIdx.date === -1 || colIdx.from === -1 || colIdx.to === -1){
+        alert('CSV-filen mangler nødvendige kolonner (Dato, Fra, Til)');
+        return;
+      }
+
+      const imported = [];
+      for(let i = 1; i < lines.length; i++){
+        const v = parseCsvLine(lines[i]);
+        if(!v[colIdx.date] || !v[colIdx.from] || !v[colIdx.to]) continue;
+
+        // Konverter dato fra forskellige formater til ISO
+        let isoDate = v[colIdx.date].trim();
+        if(/^\d{2}-\d{2}-\d{4}$/.test(isoDate)){
+          // DD-MM-YYYY -> YYYY-MM-DD
+          const p = isoDate.split('-');
+          isoDate = p[2] + '-' + p[1] + '-' + p[0];
+        }
+
+        imported.push({
+          id: Date.now() + i,
+          car: colIdx.car !== -1 ? (v[colIdx.car] || activeCar) : activeCar,
+          date: isoDate,
+          from: v[colIdx.from] || '',
+          via: colIdx.via !== -1 ? (v[colIdx.via] || '') : '',
+          to: v[colIdx.to] || '',
+          km: parseFloat(v[colIdx.km]) || 0,
+          odoStart: parseInt(v[colIdx.odoStart]) || 0,
+          odoEnd: parseInt(v[colIdx.odoEnd]) || 0,
+          purpose: colIdx.purpose !== -1 ? (v[colIdx.purpose] || '') : '',
+          synced: false
+        });
+      }
+
+      if(imported.length === 0){ alert('Ingen gyldige kørsler fundet i CSV-filen'); return; }
+
+      const proceed = confirm(`Importér ${imported.length} kørsler?\n\nDe vil blive tilføjet til både appen og dit Excel-ark.`);
+      if(!proceed){
+        event.target.value = '';
+        return;
+      }
+
+      // Tilføj til lokal liste
+      trips = trips.concat(imported);
+      saveTrips();
+      updateTotalBadge();
+      renderLog();
+
+      // Synkronisér til Excel hvis muligt
+      if(odAccount && SP_CONFIG){
+        let synced = 0;
+        const btn = event.target.previousElementSibling;
+        const origText = btn.textContent;
+        btn.disabled = true;
+        for(const trip of imported){
+          try {
+            await syncTripToExcel(trip);
+            trip.synced = true;
+            synced++;
+            btn.textContent = `Synkroniserer ${synced}/${imported.length}...`;
+          } catch(e){
+            console.warn('Sync fejl for trip:', trip, e);
+          }
+        }
+        saveTrips();
+        renderLog();
+        btn.textContent = origText;
+        btn.disabled = false;
+        alert(`✓ Importeret ${imported.length} kørsler\n✓ Synkroniseret ${synced} til Excel`);
+      } else {
+        alert(`✓ Importeret ${imported.length} kørsler lokalt\n(Ikke synkroniseret — log ind først)`);
+      }
+
+      event.target.value = '';
+    } catch(err){
+      alert('Fejl ved import: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function parseCsvLine(line){
+  // Simpel CSV-parser der håndterer "" escapes og kommaer i citater
+  const result = [];
+  let cur = '';
+  let inQuotes = false;
+  for(let i = 0; i < line.length; i++){
+    const c = line[i];
+    if(c === '"'){
+      if(inQuotes && line[i+1] === '"'){ cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if(c === ',' && !inQuotes){
+      result.push(cur);
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
 }
 
 // ═══ EXPORT CSV ═══

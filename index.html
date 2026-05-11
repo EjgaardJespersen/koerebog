@@ -2444,7 +2444,9 @@ function removeFav(i){
   updateFavCountLabel();
 }
 function updateFavCountLabel(){
-  document.getElementById('fav-count-label').textContent = favorites.length + (favorites.length === 1 ? ' favorit gemt' : ' favoritter gemt');
+  const el = document.getElementById('fav-count-label');
+  if(!el) return;
+  el.textContent = favorites.length + (favorites.length === 1 ? ' favorit gemt' : ' favoritter gemt');
 }
 
 // Favorite picker

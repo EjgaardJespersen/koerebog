@@ -1026,6 +1026,12 @@ let currentDuration = null;
 let viaOpen = false;
 let favPickerTarget = null;
 let debounceTimers = {};
+
+// Cache for ruteberegning
+const _routeCache = new Map();
+const _geocodeCache = new Map();
+let _autoCalcTimer = null;
+let _lastCalcKey = '';
 let msalInstance = null;
 let odAccount = null;
 let odAccessToken = null;
@@ -1306,6 +1312,7 @@ async function revealApp(){
   updateFavCountLabel();
   renderCarPicker();
   renderFrontFavs();
+  updateActiveCarLabel(); // Sørg for at bilnavnet vises i topbar
 
   // Hent kørsler fra Excel ved opstart så loggen er synkroniseret
   loadTripsFromExcel().then(ok => {
@@ -2133,9 +2140,7 @@ async function syncTripToExcel(trip){
   // Sortér tabellen efter dato (kolonne B, index 1)
   await sortExcelTable(token, base);
 
-  // Opdater "I alt"-rækken
-  updateTotalKmRow().catch(e => console.warn('Total-opdatering:', e));
-
+  // Sumrække er fjernet i denne version
   return true;
 }
 
@@ -2187,9 +2192,6 @@ async function deleteTripFromExcel(tripId){
       console.warn('Slet HTTP-fejl:', delRes.status, await delRes.text());
       return false;
     }
-
-    // Opdater "I alt"-rækken efter vellykket sletning
-    updateTotalKmRow().catch(e => console.warn('Total-opdatering:', e));
 
     return true;
   } catch(e){
@@ -2481,10 +2483,7 @@ function checkCalcReady(){
 }
 
 // Cache for at undgå at beregne samme rute flere gange
-const _routeCache = new Map();
-const _geocodeCache = new Map();
-
-let _autoCalcTimer = null;
+let _autoCalcTimerOld = null; // ubrugt - bevaret for kompatibilitet
 function scheduleAutoCalc(){
   // Auto-beregn når from + to er udfyldt og brugeren stopper med at skrive
   if(_autoCalcTimer) clearTimeout(_autoCalcTimer);
@@ -2501,8 +2500,6 @@ function scheduleAutoCalc(){
     }
   }, 800);
 }
-
-let _lastCalcKey = '';
 
 async function geocode(addr){
   const cached = _geocodeCache.get(addr);

@@ -851,8 +851,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   <div class="modal-sheet" onclick="e=>e.stopPropagation()">
     <div class="modal-handle"></div>
     <div class="modal-title">⭐ Favoritadresser</div>
-    <div class="fav-list" id="fav-list"></div>
-    <div class="fav-add-form">
+    <div class="fav-add-form" style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
       <input id="fav-name-input" type="text" placeholder="Navn (fx. Kontor, Hjem, Kunde A)">
       <div class="addr-wrap" style="position:relative">
         <input id="fav-addr-input" type="text" placeholder="Adresse (fx. Vesterbrogade 10, København)" autocomplete="off">
@@ -863,6 +862,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
         <button class="btn-primary-sm" onclick="addFavorite()">＋ Tilføj</button>
       </div>
     </div>
+    <div class="fav-list" id="fav-list"></div>
   </div>
 </div>
 
@@ -1037,6 +1037,7 @@ let _lastCalcKey = '';
 let msalInstance = null;
 let odAccount = null;
 let odAccessToken = null;
+let odAccessTokenExpiry = 0; // Unix timestamp i ms
 
 // ═══ KONFIGURATION ═══
 // Login (hardkodet — knyttet til Azure-app i den specifikke tenant)
@@ -1951,18 +1952,41 @@ function saveClientId(){
 
 async function getGraphToken(){
   if(!msalInstance || !odAccount) return null;
-  // Brug gemt token hvis det stadig er gyldigt (< 55 min gammelt)
-  if(odAccessToken) return odAccessToken;
+  // Brug gemt token hvis det stadig er gyldigt (med 5 min margin)
+  if(odAccessToken && Date.now() < odAccessTokenExpiry - 300000) return odAccessToken;
+  // Token er udløbet eller udløber snart — ryd cache
+  odAccessToken = null;
   try {
     const r = await msalInstance.acquireTokenSilent({
       scopes: LOGIN_SCOPES,
       account: odAccount
     });
     odAccessToken = r.accessToken;
+    odAccessTokenExpiry = r.expiresOn ? new Date(r.expiresOn).getTime() : Date.now() + 3600000;
     return odAccessToken;
   } catch(e){
-    console.warn('Silent token fejl:', e);
-    return null;
+    console.warn('Silent token fejl, prøver popup:', e);
+    try {
+      const r = await msalInstance.acquireTokenPopup({
+        scopes: LOGIN_SCOPES,
+        account: odAccount
+      });
+      odAccessToken = r.accessToken;
+      odAccessTokenExpiry = r.expiresOn ? new Date(r.expiresOn).getTime() : Date.now() + 3600000;
+      return odAccessToken;
+    } catch(popupErr){
+      console.warn('Popup token fejl, prøver redirect:', popupErr);
+      try {
+        await msalInstance.acquireTokenRedirect({
+          scopes: LOGIN_SCOPES,
+          account: odAccount
+        });
+        return null;
+      } catch(redirectErr){
+        console.error('Alle token-metoder fejlede:', redirectErr);
+        return null;
+      }
+    }
   }
 }
 
@@ -2109,7 +2133,7 @@ async function syncTripToExcel(trip){
   if(!odAccount) throw new Error('Ikke logget ind');
   if(!SP_CONFIG) throw new Error('App ikke konfigureret');
   const token = await getGraphToken();
-  if(!token) throw new Error('Kan ikke hente adgangstoken');
+  if(!token) throw new Error('Sessionen er udløbet — log ud og ind igen');
 
   await spFindFile(token);
   const base = buildGraphBaseUrl();
